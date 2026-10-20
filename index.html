@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="theme-color" content="#10302c">
-<meta name="description" content="Hati Hati - game platformer troll 20 level.">
+<meta name="description" content="Hati Hati - game platformer troll 30 level.">
 <title>Hati Hati</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap">
@@ -274,6 +274,66 @@ const LEVELS=[
    }}));
    return {m, ents:e};
  }},
+ {name:'Naik Lift', hint:'Tunggu liftnya dateng.', build(){
+   const m=blank(); pit(m,5,26);
+   return {m, ents:[{kind:'mover',x:50,y:130,w:30,h:T,solid:true,x1:50,x2:230,vx:40}, pop(28,28,14,27,27), door(29)]};
+ }},
+ {name:'Duri Bohongan', hint:'Lewat atas aja, aman.', build(){
+   const m=blank(); const e=[];
+   for(let x=8;x<=20;x++) e.push({kind:'fspike',x:x*T,y:14*T,w:T,h:T});
+   for(let x=7;x<=21;x++) e.push(crumble(x,12,(x===12||x===17)?0:.22));
+   e.push(door(28)); return {m, ents:e, helpAt:2, help:'Durinya kok gak nusuk ya?'};
+ }},
+ {name:'Lift Rapuh', hint:'Liftnya kuat kok.', build(){
+   const m=blank(); pit(m,5,26);
+   return {m, ents:[{kind:'mover',x:50,y:130,w:30,h:T,solid:true,x1:50,x2:120,vx:40},
+     {kind:'mover',x:230,y:110,w:30,h:T,solid:true,x1:150,x2:230,vx:-45,fallAfter:.6}, door(28)]};
+ }},
+ {name:'Ngebut Kebalik', hint:'Pelan-pelan... eh.', rev:true, spd:1.6, build(){
+   const m=blank(); pit(m,9,10); pit(m,17,18);
+   return {m, ents:[pop(23,23,14,22,23), door(28)]};
+ }},
+ {name:'Tangga Gaib', hint:'Tangganya ada. Percaya deh.', build(){
+   const m=blank(); pit(m,5,30); fill(m,21,4,29,4,'#'); const e=[];
+   for(const [x1,y] of [[6,12],[11,9],[16,6]]) for(let x=x1;x<x1+3;x++) e.push(inv(x,y));
+   e.push(pop(24,24,3,23,24)); e.push(door(27,4));
+   return {m, ents:e, helpAt:2, help:'Lompat ke atas, ada pijakan gaib.'};
+ }},
+ {name:'Kejar Kebalik', hint:'Lari! Ke... arah mana ya?', rev:true, build(){
+   const m=blank(); pit(m,8,9); pit(m,15,16); fill(m,20,13,20,14,'#');
+   return {m, ents:[zone(12,12,g=>{g.rev=false;say('Nah, normal.');sfx.trap();}),
+     {kind:'chase',x:-12,y:10,w:10,h:140,spd:48,wait:1.5}, pop(24,24,14,23,24), door(28)]};
+ }},
+ {name:'Lorong Duri', hint:'Lompat kecil-kecil aja.', build(){
+   const m=blank(); fill(m,6,1,25,9,'#'); fill(m,6,10,25,10,'v'); pit(m,10,11); pit(m,18,19);
+   return {m, ents:[pop(23,23,14,22,23), door(28)]};
+ }},
+ {name:'Pintu Jalan-jalan', hint:'Pintunya lagi jalan-jalan.', build(){
+   const m=blank(); pit(m,5,26);
+   const mv={kind:'mover',x:50,y:130,w:40,h:T,solid:true,x1:50,x2:200,vx:30,boost:2.4};
+   const d=door(0,15,{upd(e){e.x=mv.x+30;e.y=mv.y-14;e.moving=false;}});
+   return {m, ents:[mv,d]};
+ }},
+ {name:'Mati Lampu', hint:'Kok gelap ya?', dark:true, build(){
+   const m=blank(); pit(m,8,9); pit(m,19,21); const e=[];
+   for(let x=19;x<=21;x++) e.push(crumble(x,15,.2));
+   e.push(pop(14,14,14,13,14)); e.push(door(24,15,{fake:true})); e.push(door(28));
+   return {m, ents:e};
+ }},
+ {name:'Bos Terakhir', hint:'Ini beneran yang terakhir.', build(){
+   const m=blank(); pit(m,8,12); fill(m,16,1,20,10,'#'); const e=[];
+   e.push(pop(5,5,14,4,5));
+   for(let x=8;x<=12;x++) e.push(crumble(x,15,x===10?0:.16));
+   e.push(pop(15,15,14,14,15));
+   m[10][18]='.'; e.push(block(18,10,17,18,{wait:.05}));
+   e.push(door(22,15,{fake:true}));
+   e.push(zone(24,24,g=>{g.rev=true;say('Kebalik! Hahaha');sfx.trap();}));
+   e.push({kind:'chase',x:-12,y:10,w:10,h:140,spd:40,wait:3});
+   e.push(door(28,15,{locked:true,upd(e,g){
+     if(e.locked&&g.idle>=2&&g.p.x>230){e.locked=false;sfx.door();say('Kebuka! Masuk!');}
+   }}));
+   return {m, ents:e};
+ }},
 ];
 
 const TAUNT=['Yakin bisa?','Udah ketebak harusnya.','Hati hati, katanya.','Lagi dong.','Pelan-pelan aja.',
@@ -288,7 +348,7 @@ function loadLevel(i,fresh){
   const L=LEVELS[i], b=L.build();
   g.lv=i; g.m=b.m; g.ents=b.ents; g.L=L; g.extra=b;
   g.p={x:2*T+1,y:150-11,w:7,h:11,vx:0,vy:0,ground:false,co:0,jb:0,face:1,on:null,walk:0};
-  g.rev=!!L.rev; g.spd=1; g.jmul=1; g.idle=0; g.lvTime=0; g.parts=[]; g.saidRest=0;
+  g.rev=!!L.rev; g.spd=L.spd||1; g.jmul=1; g.idle=0; g.lvTime=0; g.parts=[]; g.saidRest=0;
   if(fresh){g.lvDeaths=0; g.banner=2;}
   g.state='play';
   if(fresh) say(L.hint,3);
@@ -394,6 +454,14 @@ function update(dt){
         }
         break;
       case 'inv': if(p.on===e) e.seen=true; break;
+      case 'mover': {
+        if(!e.falling){ const ox=e.x; e.x+=e.vx*dt;
+          if(e.x<=e.x1){e.x=e.x1;e.vx=Math.abs(e.vx);} if(e.x>=e.x2){e.x=e.x2;e.vx=-Math.abs(e.vx);}
+          if(p.on===e){ p.x+=e.x-ox;
+            if(e.boost&&!e.boosted){e.boosted=1;e.vx*=e.boost;say('Wah, ngebut!');sfx.trap();}
+            if(e.fallAfter){ e.ft2=(e.ft2||0)+dt; if(e.ft2>=e.fallAfter){e.falling=1;e.solid=false;sfx.crack();} } }
+        } else { e.vy=(e.vy||0)+GRAV*dt; e.y+=e.vy*dt; }
+      } break;
       case 'chase': if(g.lvTime>=e.wait){ if(!e.go){e.go=1;say('Lari!!',1.2);sfx.trap();} e.x+=e.spd*dt; if(ov(p,e)) die(); } break;
       case 'zone': if(e.fired&&!e.done){ e.done=true; e.fn(g); } break;
     }
@@ -493,6 +561,8 @@ function draw(){
     else if(e.kind==='inv'&&e.seen){ ctx.globalAlpha=.35; px(e.x,e.y,T,T,C.wall); ctx.globalAlpha=1; }
     else if(e.kind==='pop'&&e.up>0) spikes(e.x,e.y+e.h-6*e.up,e.w,6*e.up);
     else if(e.kind==='door') drawDoor(e);
+    else if(e.kind==='mover'){ px(e.x,e.y,e.w,e.h,C.wall); px(e.x,e.y,e.w,2,C.gold); px(e.x,e.y+e.h-1,e.w,1,C.wallD); }
+    else if(e.kind==='fspike') spikes(e.x,e.y+4,e.w,6);
     else if(e.kind==='chase'&&e.x>-10){ px(e.x-40,e.y,e.w+38,e.h,C.ink); ctx.fillStyle=C.ink;
       for(let yy=e.y;yy<e.y+e.h;yy+=6){ctx.beginPath();ctx.moveTo(e.x+e.w-2,yy);ctx.lineTo(e.x+e.w+4,yy+3);ctx.lineTo(e.x+e.w-2,yy+6);ctx.fill();} }
   }
@@ -504,6 +574,10 @@ function draw(){
   }
   for(const q of g.parts) px(Math.round(q.x),Math.round(q.y),2,2,q.c);
 
+  if(g.L&&g.L.dark&&(g.state==='play'||g.state==='dead')){
+    const p=g.p, cx=p.x+p.w/2, cy=p.y+p.h/2;
+    ctx.save(); ctx.beginPath(); ctx.rect(0,0,W,H); ctx.arc(cx,cy,42,0,Math.PI*2,true);
+    ctx.fillStyle='rgba(16,24,26,.97)'; ctx.fill(); ctx.restore(); }
   // HUD di atas tembok atap
   text('LV '+(g.lv+1)+'/'+LEVELS.length,4,1,8,C.bg,'left');
   text('MATI '+save.deaths,W-4,1,8,C.bg,'right');
@@ -530,7 +604,7 @@ function drawMenu(){
     sprite(W/2-15,H-31-36+bob,1,null,3);
     const blink=Math.floor(g.anim*2)%2===0;
     if(blink) text('Tekan ▲ buat mulai',W/2,90,8,C.bg);
-    text(save.lv>0?'Lanjut dari Level '+(save.lv+1):'20 level. Banyak jebakan.',W/2,104,6,C.gold);
+    text(save.lv>0?'Lanjut dari Level '+(save.lv+1):LEVELS.length+' level. Banyak jebakan.',W/2,104,6,C.gold);
     text('Total mati: '+save.deaths,W/2,H-20,6,C.bg);
   } else {
     text('KAMU LOLOS!',W/2,22,16,C.ink); text('KAMU LOLOS!',W/2,20,16,C.gold);
