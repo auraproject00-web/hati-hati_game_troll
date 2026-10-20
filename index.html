@@ -69,10 +69,14 @@ function fit(){
   const pad=document.getElementById('pad'), tip=document.getElementById('tip');
   const land=matchMedia('(orientation:landscape) and (max-height:560px)').matches;
   const availW=Math.min(window.innerWidth-32, 1280);
-  const availH=land? window.innerHeight-pad.offsetHeight-30 : window.innerHeight-pad.offsetHeight-(tip.offsetHeight||0)-44;
-  let w=availW, h=w*9/16;
-  if(h>availH){h=availH; w=h*16/9;}
-  cv.style.width=Math.floor(w)+'px'; cv.style.height=Math.floor(h)+'px';
+  const availH=land? window.innerHeight-pad.offsetHeight-40 : window.innerHeight-pad.offsetHeight-(tip.offsetHeight||0)-44;
+  // isi lebar layar: area main tetap 16:9 di tengah, sisi kiri-kanan diisi tembok
+  let h=Math.min(availH, availW*9/16*1.0), w=Math.min(availW, h*2.4);
+  if(availW*9/16<availH){ h=availW*9/16; w=availW; }
+  w=Math.floor(w); h=Math.floor(h);
+  cv.style.width=w+'px'; cv.style.height=h+'px';
+  const dpr=Math.min(window.devicePixelRatio||1,3);
+  cv.width=Math.round(w*dpr); cv.height=Math.round(h*dpr);
 }
 addEventListener('resize',fit); addEventListener('orientationchange',()=>setTimeout(fit,200));
 
@@ -456,14 +460,17 @@ function drawDoor(e){
 }
 
 function draw(){
-  ctx.setTransform(SC,0,0,SC,0,0);
+  ctx.setTransform(1,0,0,1,0,0);
+  const sc=Math.min(cv.width/W, cv.height/H), ox=(cv.width-W*sc)/2, oy=(cv.height-H*sc)/2;
+  if(ox>0){ ctx.fillStyle=C.wall; ctx.fillRect(0,0,cv.width,cv.height); ctx.fillStyle=C.wallD;
+    for(let y=T-1;y<H;y+=T) ctx.fillRect(0,oy+y*sc,cv.width,Math.max(1,sc)); }
+  ctx.setTransform(sc,0,0,sc,ox,oy);
   let sx=0,sy=0; if(g.shake>0){sx=(Math.random()-.5)*3;sy=(Math.random()-.5)*3;}
   ctx.save(); ctx.translate(Math.round(sx),Math.round(sy));
 
   if(g.state==='menu'||g.state==='done'){ drawMenu(); ctx.restore(); return; }
 
   px(0,0,W,H,C.bg);
-  for(let y=1;y<ROWS;y+=2) px(0,y*T+4,W,1,C.bg2);
   for(let ty=0;ty<ROWS;ty++)for(let tx=0;tx<COLS;tx++){
     const c=g.m[ty][tx];
     if(c==='#') wallTile(tx*T,ty*T,tx,ty);
