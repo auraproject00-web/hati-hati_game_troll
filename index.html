@@ -2,7 +2,7 @@
 <html lang="id">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="theme-color" content="#10302c">
 <meta name="description" content="Hati Hati - game platformer troll 20 level.">
 <title>Hati Hati</title>
@@ -15,7 +15,7 @@
   --pix:'Press Start 2P', ui-monospace, monospace;
   color-scheme:dark;
 }
-html,body{height:100%;}
+html,body{height:100%;touch-action:manipulation;}
 body{background:var(--bg);color:var(--ink);font-family:var(--pix);overflow:hidden;touch-action:none;
   -webkit-user-select:none;user-select:none;-webkit-touch-callout:none;}
 #app{height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;
@@ -99,6 +99,14 @@ addEventListener('keyup',e=>{const k=km[e.code]; if(k){keys[k]=0;e.preventDefaul
   el.addEventListener('contextmenu',e=>e.preventDefault());
 });
 addEventListener('blur',()=>{keys.l=keys.r=keys.j=0;});
+/* cegah zoom browser (double-tap & cubit) */
+let lastTouch=0;
+document.addEventListener('touchend',e=>{const n=Date.now(); if(n-lastTouch<350) e.preventDefault(); lastTouch=n;},{passive:false});
+document.addEventListener('dblclick',e=>e.preventDefault(),{passive:false});
+['gesturestart','gesturechange','gestureend'].forEach(t=>document.addEventListener(t,e=>e.preventDefault(),{passive:false}));
+document.addEventListener('touchmove',e=>{if(e.touches.length>1)e.preventDefault();},{passive:false});
+(()=>{let m=document.querySelector('meta[name=viewport]'); if(!m){m=document.createElement('meta');m.name='viewport';document.head.appendChild(m);}
+  m.content='width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover';})();
 
 /* ---------- suara 8-bit ---------- */
 let ac=null;
