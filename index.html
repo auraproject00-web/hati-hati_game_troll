@@ -277,13 +277,24 @@ const LEVELS=[
  }},
  {name:'Naik Lift', hint:'Tunggu liftnya dateng.', build(){
    const m=blank(); pit(m,5,26);
-   return {m, ents:[{kind:'mover',x:50,y:130,w:30,h:T,solid:true,x1:50,x2:230,vx:40}, pop(28,28,14,27,27), door(29)]};
+   return {m, ents:[{kind:'mover',x:50,y:130,w:30,h:T,solid:true,x1:50,x2:230,vx:40,crumbleAt:212}, pop(28,28,14,27,27), door(29)]};
  }},
- {name:'Duri Bohongan', hint:'Lewat atas aja, aman.', build(){
-   const m=blank(); const e=[];
-   for(let x=8;x<=20;x++) e.push({kind:'fspike',x:x*T,y:14*T,w:T,h:T});
-   for(let x=7;x<=21;x++) e.push(crumble(x,12,(x===12||x===17)?0:.22));
-   e.push(door(28)); return {m, ents:e, helpAt:2, help:'Durinya kok gak nusuk ya?'};
+ {name:'Lubang Dadakan', hint:'Lantainya rata kok.', build(){
+   const m=blank(); pit(m,8,9); pit(m,13,14); pit(m,18,26); const e=[];
+   const t=(x,o={})=>Object.assign({kind:'tile',x:x*T,y:15*T,w:T,h:T,solid:true},o);
+   e.push(t(8,{trig:[80,100],open:1}), t(9,{trig:[80,100],open:1}));
+   e.push(t(13,{trig:[115,140],open:1}), t(14,{trig:[115,140],open:1}));
+   const tiles={}; for(let x=18;x<=26;x++){ tiles[x]=t(x); e.push(tiles[x]); }
+   const setHoles=h=>{ for(let x=18;x<=26;x++) tiles[x].solid=!h.includes(x); };
+   setHoles([21,22]);
+   e.push({kind:'logic',st:0,upd(o,g){
+     const p=g.p, px=p.x+p.w/2;
+     if(o.st===0&&!p.ground&&px>=170&&px<215){ o.st=1; setHoles([24,25]); sfx.trap(); say('Eh, lubangnya pindah!',1.6); }
+     else if(o.st===1){ if(p.ground) o.g1=1;
+       if(o.g1&&!p.ground&&px>=225&&px<245){ o.st=2; setHoles([24,25,26]); sfx.trap(); say('Melebar! Hahaha',1.6); } }
+   }});
+   e.push(door(29));
+   return {m, ents:e, helpAt:3, help:'Lompat pendek dulu, terus lompat penuh.'};
  }},
  {name:'Lift Rapuh', hint:'Liftnya kuat kok.', build(){
    const m=blank(); pit(m,5,26);
@@ -338,7 +349,7 @@ const LEVELS=[
 ];
 /* urutan kesulitan: makin ke belakang makin susah */
 const ORDER=['Pemanasan','Duri Nongol','Ngebut','Kaki Pegel','Atap Berduri','Pintu Kabur','Lorong Duri','Naik Lift',
- 'Lantai Rapuh','Duri Bohongan','Pintu Palsu','Kebalik','Percaya Aja','Awas Atas','Pintu Nakal','Jalan Gaib',
+ 'Lantai Rapuh','Lubang Dadakan','Pintu Palsu','Kebalik','Percaya Aja','Awas Atas','Pintu Nakal','Jalan Gaib',
  'Tangga Gaib','Tangga Rapuh','Pintu Jalan-jalan','Sabar','Lift Rapuh','Ngebut Kebalik','Kebalik Lagi','Atap Turun',
  'Gabungan','Mati Lampu','Dikejar','Kejar Kebalik','Penutupan','Bos Terakhir'];
 LEVELS.sort((a,b)=>ORDER.indexOf(a.name)-ORDER.indexOf(b.name));
@@ -463,12 +474,15 @@ function update(dt){
         }
         break;
       case 'inv': if(p.on===e) e.seen=true; break;
+      case 'tile': if(e.open&&e.fired&&e.solid){ e.solid=false; sfx.trap(); } break;
       case 'mover': {
         if(!e.falling){ const ox=e.x; e.x+=e.vx*dt;
           if(e.x<=e.x1){e.x=e.x1;e.vx=Math.abs(e.vx);} if(e.x>=e.x2){e.x=e.x2;e.vx=-Math.abs(e.vx);}
           if(p.on===e){ p.x+=e.x-ox;
             if(e.boost&&!e.boosted){e.boosted=1;e.vx*=e.boost;say('Wah, ngebut!');sfx.trap();}
-            if(e.fallAfter){ e.ft2=(e.ft2||0)+dt; if(e.ft2>=e.fallAfter){e.falling=1;e.solid=false;sfx.crack();} } }
+            if(e.fallAfter){ e.ft2=(e.ft2||0)+dt; if(e.ft2>=e.fallAfter){e.falling=1;e.solid=false;sfx.crack();} }
+            if(e.crumbleAt&&!e.cr&&e.x>=e.crumbleAt){ e.cr=.0001; sfx.crack(); say('Krek... krek...',1.2); } }
+          if(e.cr){ e.cr+=dt; if(e.cr>=.35){ e.falling=1; e.solid=false; sfx.crack(); } }
         } else { e.vy=(e.vy||0)+GRAV*dt; e.y+=e.vy*dt; }
       } break;
       case 'chase': if(g.lvTime>=e.wait){ if(!e.go){e.go=1;say('Lari!!',1.2);sfx.trap();} e.x+=e.spd*dt; if(ov(p,e)) die(); } break;
@@ -570,7 +584,8 @@ function draw(){
     else if(e.kind==='inv'&&e.seen){ ctx.globalAlpha=.35; px(e.x,e.y,T,T,C.wall); ctx.globalAlpha=1; }
     else if(e.kind==='pop'&&e.up>0) spikes(e.x,e.y+e.h-6*e.up,e.w,6*e.up);
     else if(e.kind==='door') drawDoor(e);
-    else if(e.kind==='mover'){ px(e.x,e.y,e.w,e.h,C.wall); px(e.x,e.y,e.w,2,C.gold); px(e.x,e.y+e.h-1,e.w,1,C.wallD); }
+    else if(e.kind==='mover'){ const j=(e.cr&&!e.falling)?Math.round((Math.random()-.5)*2):0; px(e.x+j,e.y,e.w,e.h,C.wall); if(e.cr){px(e.x+8+j,e.y+3,1,5,C.crack);px(e.x+19+j,e.y+4,1,4,C.crack);} px(e.x,e.y,e.w,2,C.gold); px(e.x,e.y+e.h-1,e.w,1,C.wallD); }
+    else if(e.kind==='tile'&&e.solid){ px(e.x,e.y,T,T,C.wall); px(e.x,e.y,T,2,C.wallL); px(e.x,e.y+T-1,T,1,C.wallD); }
     else if(e.kind==='fspike') spikes(e.x,e.y+4,e.w,6);
     else if(e.kind==='chase'&&e.x>-10){ px(e.x-40,e.y,e.w+38,e.h,C.ink); ctx.fillStyle=C.ink;
       for(let yy=e.y;yy<e.y+e.h;yy+=6){ctx.beginPath();ctx.moveTo(e.x+e.w-2,yy);ctx.lineTo(e.x+e.w+4,yy+3);ctx.lineTo(e.x+e.w-2,yy+6);ctx.fill();} }
