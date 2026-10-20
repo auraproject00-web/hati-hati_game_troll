@@ -86,7 +86,8 @@ try{const s=JSON.parse(localStorage.getItem('hatihati')); if(s) save=Object.assi
 function store(){try{localStorage.setItem('hatihati',JSON.stringify(save));}catch(e){}}
 
 /* ---------- input ---------- */
-const keys={l:0,r:0,j:0}; let prevJ=0;
+const DEV=false; // versi uji coba: pilih level di menu. Versi GitHub/Vercel = false
+const keys={l:0,r:0,j:0}; let prevJ=0, prevL=0, prevR=0;
 const km={ArrowLeft:'l',KeyA:'l',ArrowRight:'r',KeyD:'r',Space:'j',ArrowUp:'j',KeyW:'j'};
 addEventListener('keydown',e=>{const k=km[e.code]; if(k){keys[k]=1;e.preventDefault();audioInit();}});
 addEventListener('keyup',e=>{const k=km[e.code]; if(k){keys[k]=0;e.preventDefault();}});
@@ -205,7 +206,7 @@ const LEVELS=[
    }}));
    return {m, ents:e};
  }},
- {name:'Sabar', hint:'Level terakhir. Pintunya kekunci.', build(){
+ {name:'Sabar', hint:'Pintunya kekunci. Hmm.', build(){
    const m=blank();
    return {m, ents:[pop(14,15,14,14,15,{cond:g=>g.lvTime>3}), pop(17,18,14,17,18,{cond:g=>g.lvTime>3}), door(16,15,{locked:true,upd(e,g){
      if(e.locked&&g.idle>=7){e.locked=false;sfx.door();say('Nah. Sabar itu kuncinya.');}
@@ -261,7 +262,7 @@ const LEVELS=[
    const m=blank(); pit(m,9,10); pit(m,17,18); fill(m,13,13,13,14,'#'); fill(m,22,12,22,14,'#');
    return {m, ents:[{kind:'chase',x:-12,y:10,w:10,h:140,spd:62,wait:1.2}, pop(25,25,14,25,25), door(28)]};
  }},
- {name:'Penutupan', hint:'Level terakhir. Semua keluar.', build(){
+ {name:'Penutupan', hint:'Semua jebakan keluar.', build(){
    const m=blank(); pit(m,9,13); fill(m,16,1,20,10,'#'); const e=[];
    e.push(pop(6,6,14,5,6));
    for(let x=9;x<=13;x++) e.push(crumble(x,15,(x===10||x===12)?0:.16));
@@ -335,6 +336,12 @@ const LEVELS=[
    return {m, ents:e};
  }},
 ];
+/* urutan kesulitan: makin ke belakang makin susah */
+const ORDER=['Pemanasan','Duri Nongol','Ngebut','Kaki Pegel','Atap Berduri','Pintu Kabur','Lorong Duri','Naik Lift',
+ 'Lantai Rapuh','Duri Bohongan','Pintu Palsu','Kebalik','Percaya Aja','Awas Atas','Pintu Nakal','Jalan Gaib',
+ 'Tangga Gaib','Tangga Rapuh','Pintu Jalan-jalan','Sabar','Lift Rapuh','Ngebut Kebalik','Kebalik Lagi','Atap Turun',
+ 'Gabungan','Mati Lampu','Dikejar','Kejar Kebalik','Penutupan','Bos Terakhir'];
+LEVELS.sort((a,b)=>ORDER.indexOf(a.name)-ORDER.indexOf(b.name));
 
 const TAUNT=['Yakin bisa?','Udah ketebak harusnya.','Hati hati, katanya.','Lagi dong.','Pelan-pelan aja.',
  'Helmnya gak nolong ya.','Hampir... (bohong)','Coba lagi, bos.','Itu tadi jebakan.','Waduh.'];
@@ -388,6 +395,8 @@ function update(dt){
   if(g.shake>0) g.shake-=dt;
   if(g.banner>0) g.banner-=dt;
   const jp=keys.j&&!prevJ; prevJ=keys.j;
+  const lp=keys.l&&!prevL, rp=keys.r&&!prevR; prevL=keys.l; prevR=keys.r;
+  if(DEV&&g.state==='menu'&&(lp||rp)){ save.lv=(save.lv+(rp?1:-1)+LEVELS.length)%LEVELS.length; store(); sfx.crack(); }
 
   if(g.state==='menu'||g.state==='done'){
     if(jp){ audioInit();
@@ -580,8 +589,8 @@ function draw(){
     ctx.fillStyle='rgba(16,24,26,.97)'; ctx.fill(); ctx.restore(); }
   // HUD di atas tembok atap
   text('LV '+(g.lv+1)+'/'+LEVELS.length,4,1,8,C.bg,'left');
-  text('MATI '+save.deaths,W-4,1,8,C.bg,'right');
-  if(g.lv===9&&g.ents[2].locked&&g.idle>.5){ const n=Math.max(0,7-g.idle); text('.'.repeat(Math.ceil(7-n)),W/2,1,8,C.gold); }
+  text((DEV?'DEV · ':'')+'MATI '+save.deaths,W-4,1,8,C.bg,'right');
+  if(g.L.name==='Sabar'&&g.ents[2].locked&&g.idle>.5){ const n=Math.max(0,7-g.idle); text('.'.repeat(Math.ceil(7-n)),W/2,1,8,C.gold); }
 
   if(g.banner>0){ const a=Math.min(1,g.banner*2); ctx.globalAlpha=a;
     px(0,62,W,30,C.ink); text(g.L.name.toUpperCase(),W/2,68,12,C.gold); text('Level '+(g.lv+1),W/2,83,6,C.bg); ctx.globalAlpha=1; }
@@ -604,7 +613,8 @@ function drawMenu(){
     sprite(W/2-15,H-31-36+bob,1,null,3);
     const blink=Math.floor(g.anim*2)%2===0;
     if(blink) text('Tekan ▲ buat mulai',W/2,90,8,C.bg);
-    text(save.lv>0?'Lanjut dari Level '+(save.lv+1):LEVELS.length+' level. Banyak jebakan.',W/2,104,6,C.gold);
+    if(DEV){ px(W/2-110,100,220,22,C.ink); text('DEV ◀ ▶  Level '+(save.lv+1)+': '+LEVELS[save.lv].name,W/2,104,6,C.gold); text('pilih level, ▲ buat mulai',W/2,114,5,C.bg); }
+    else text(save.lv>0?'Lanjut dari Level '+(save.lv+1):LEVELS.length+' level. Banyak jebakan.',W/2,104,6,C.gold);
     text('Total mati: '+save.deaths,W/2,H-20,6,C.bg);
   } else {
     text('KAMU LOLOS!',W/2,22,16,C.ink); text('KAMU LOLOS!',W/2,20,16,C.gold);
