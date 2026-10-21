@@ -29,6 +29,12 @@ canvas{display:block;image-rendering:pixelated;border:3px solid var(--line);bord
 .b.on{background:var(--btnOn);color:var(--line);transform:translateY(3px);box-shadow:0 2px 0 var(--line);}
 .b:focus-visible{outline:3px solid var(--btnOn);outline-offset:2px;}
 #bj{width:96px;}
+#bm{width:52px;height:44px;font-size:14px;}
+#breset{position:fixed;top:calc(env(safe-area-inset-top,0px) + 12px);left:50%;transform:translateX(-50%);z-index:5;
+  font-family:var(--pix);font-size:9px;padding:9px 12px;border:3px solid var(--line);border-radius:8px;background:var(--panel);color:var(--ink);box-shadow:0 3px 0 var(--line);cursor:pointer;}
+#breset.confirm{background:#e2574c;color:#fff;}
+#breset:focus-visible{outline:3px solid var(--btnOn);outline-offset:2px;}
+#bm.off{opacity:.45;text-decoration:line-through;}
 #tip{font-size:8px;opacity:.6;text-align:center;line-height:1.6;}
 @media (hover:hover) and (pointer:fine){ #tip{display:block} }
 @media (prefers-reduced-motion: reduce){ .b{transition:none} }
@@ -39,6 +45,7 @@ canvas{display:block;image-rendering:pixelated;border:3px solid var(--line);bord
   #pad{max-width:none;}
   #pad .b{height:50px;width:76px;font-size:16px;}
   #pad #bj{width:120px;}
+  #pad #bm{width:52px;height:40px;}
 }
 </style>
 
@@ -51,8 +58,10 @@ canvas{display:block;image-rendering:pixelated;border:3px solid var(--line);bord
       <button class="b" id="bl" aria-label="Kiri">◀</button>
       <button class="b" id="br" aria-label="Kanan">▶</button>
     </div>
+    <button class="b" id="bm" aria-label="Musik nyala/mati">♪</button>
     <button class="b" id="bj" aria-label="Lompat">▲</button>
   </div>
+  <button id="breset" type="button">↺ Reset jumlah mati</button>
   <div id="tip">Keyboard: ← → / A D buat jalan · Spasi / ↑ / W buat lompat</div>
 </div>
 
@@ -111,13 +120,52 @@ document.addEventListener('touchmove',e=>{if(e.touches.length>1)e.preventDefault
 
 /* ---------- suara 8-bit ---------- */
 let ac=null;
-function audioInit(){ if(!ac){ try{ac=new (window.AudioContext||window.webkitAudioContext)();}catch(e){} } if(ac&&ac.state==='suspended') ac.resume(); }
+function audioInit(){ if(!ac){ try{ac=new (window.AudioContext||window.webkitAudioContext)();}catch(e){} } if(ac&&ac.state==='suspended') ac.resume(); if(ac&&typeof startMusic==='function') startMusic(); }
 function beep(f1,f2,dur,type='square',vol=.08){
   if(!ac) return; const t=ac.currentTime, o=ac.createOscillator(), g=ac.createGain();
   o.type=type; o.frequency.setValueAtTime(f1,t); o.frequency.exponentialRampToValueAtTime(Math.max(f2,30),t+dur);
   g.gain.setValueAtTime(vol,t); g.gain.exponentialRampToValueAtTime(.001,t+dur);
   o.connect(g).connect(ac.destination); o.start(t); o.stop(t+dur);
 }
+/* ---------- musik latar 8-bit (komposisi original) ---------- */
+const mus={started:0,step:0,next:0,on:save.music!==false};
+const rsEl=document.getElementById('breset'); let rsArm=0, rsTimer=null;
+rsEl.addEventListener('pointerdown',e=>{ e.preventDefault(); e.stopPropagation();
+  if(!rsArm){ rsArm=1; rsEl.classList.add('confirm'); rsEl.textContent='Yakin? Tap lagi'; clearTimeout(rsTimer);
+    rsTimer=setTimeout(()=>{rsArm=0;rsEl.classList.remove('confirm');rsEl.textContent='↺ Reset jumlah mati';},3000); return; }
+  rsArm=0; clearTimeout(rsTimer); save.deaths=0; store(); rsEl.classList.remove('confirm'); rsEl.textContent='✓ Udah 0 lagi'; if(typeof sfx!=='undefined') sfx.door();
+  rsTimer=setTimeout(()=>{rsEl.textContent='↺ Reset jumlah mati';},1500);
+});
+const bmEl=document.getElementById('bm'); if(!mus.on) bmEl.classList.add('off');
+// uji coba: pakai file MP3 kalau DEV (tidak ikut versi publik)
+const bgm = DEV ? (()=>{ try{ const a=new Audio('music.mp3'); a.loop=true; a.volume=.2; a.preload='auto'; return a; }catch(e){ return null; } })() : null;
+function syncBgm(){ if(!bgm) return; if(mus.on) bgm.play().catch(()=>{}); else bgm.pause(); }
+function toggleMusic(){ mus.on=!mus.on; save.music=mus.on; store(); bmEl.classList.toggle('off',!mus.on); audioInit(); syncBgm(); }
+bmEl.addEventListener('pointerdown',e=>{e.preventDefault();e.stopPropagation();toggleMusic();});
+addEventListener('keydown',e=>{ if(e.code==='KeyM') toggleMusic(); });
+const BPM=152, E8=60/BPM/2;
+const _=null;
+// melodi (semitone dari C5), 64 langkah per 1/8
+const LEAD=[0,_,4,7, 12,_,7,4, 5,_,9,12, 9,7,5,_,  4,_,7,11, 14,12,11,7, 9,7,5,4, 2,_,_,_,
+            0,_,4,7, 12,_,7,4, 5,_,9,12, 14,12,9,_,  7,_,11,14, 12,_,7,_, 2,4,5,7, 12,_,0,_];
+const ROOT=[0,0,5,5,7,7,7,7, 0,0,5,5,7,7,0,0]; // per setengah bar (4 langkah)
+let noiseBuf=null;
+function tone(f,t,d,type,v){ const o=ac.createOscillator(), g=ac.createGain(); o.type=type; o.frequency.setValueAtTime(f,t);
+  g.gain.setValueAtTime(v,t); g.gain.exponentialRampToValueAtTime(.0008,t+d); o.connect(g).connect(ac.destination); o.start(t); o.stop(t+d+.02); }
+function hat(t,v){ if(!noiseBuf){ noiseBuf=ac.createBuffer(1,ac.sampleRate*.05,ac.sampleRate); const d=noiseBuf.getChannelData(0); for(let i=0;i<d.length;i++) d[i]=Math.random()*2-1; }
+  const s=ac.createBufferSource(), g=ac.createGain(), f=ac.createBiquadFilter(); f.type='highpass'; f.frequency.value=6000;
+  s.buffer=noiseBuf; g.gain.setValueAtTime(v,t); g.gain.exponentialRampToValueAtTime(.0008,t+.04); s.connect(f).connect(g).connect(ac.destination); s.start(t); }
+const hz=n=>523.25*Math.pow(2,n/12);
+function playStep(i,t){
+  const n=LEAD[i]; if(n!==_) tone(hz(n),t,E8*.85,'square',.02);
+  const root=ROOT[Math.floor(i/4)], q=i%4;
+  if(q===0) tone(hz(root-24),t,E8*1.6,'triangle',.06);
+  if(q===2) tone(hz(root-17),t,E8*1.2,'triangle',.045);
+  if(i%2===1) hat(t,.014);
+}
+function sched(){ if(!ac) return; while(mus.next<ac.currentTime+.15){ if(mus.on) playStep(mus.step,mus.next); mus.next+=E8; mus.step=(mus.step+1)%LEAD.length; } }
+function startMusic(){ if(!ac||mus.started) return; mus.started=1; if(bgm){ syncBgm(); return; } mus.next=ac.currentTime+.1; setInterval(sched,30); }
+
 const sfx={
   jump:()=>beep(380,760,.12),
   die:()=>{beep(300,40,.35,'sawtooth',.1);beep(120,30,.4,'square',.06);},
@@ -215,7 +263,8 @@ const LEVELS=[
  }},
  {name:'Atap Berduri', hint:'Jangan lompat tinggi-tinggi.', build(){
    const m=blank(); fill(m,6,1,25,9,'#'); fill(m,6,10,25,10,'v'); pit(m,15,16);
-   return {m, ents:[door(28)], helpAt:3, help:'Tap ▲ sebentar = lompat pendek.'};
+   for(const x of [10,20]){ m[9][x]='.'; m[10][x]='.'; }
+   return {m, ents:[block(10,9,9,10,{wait:.08,spiky:1}), block(20,9,19,20,{wait:.04,spiky:1}), door(28)], helpAt:3, help:'Tap ▲ sebentar = lompat pendek.'};
  }},
  {name:'Ngebut', hint:'Santai, jalan biasa aja.', build(){
    const m=blank(); pit(m,14,15); pit(m,21,22);
@@ -318,13 +367,19 @@ const LEVELS=[
  }},
  {name:'Lorong Duri', hint:'Lompat kecil-kecil aja.', build(){
    const m=blank(); fill(m,6,1,25,9,'#'); fill(m,6,10,25,10,'v'); pit(m,10,11); pit(m,18,19);
-   return {m, ents:[pop(23,23,14,22,23), door(28)]};
+   for(const x of [7,14,21]){ m[9][x]='.'; m[10][x]='.'; }
+   return {m, ents:[block(7,9,6,7,{wait:.05,spiky:1}), block(14,9,13,14,{wait:.06,spiky:1}), block(21,9,21,21,{wait:0,spiky:1}), pop(23,23,14,22,23), door(28)]};
  }},
  {name:'Pintu Jalan-jalan', hint:'Pintunya lagi jalan-jalan.', build(){
    const m=blank(); pit(m,5,26);
    const mv={kind:'mover',x:50,y:130,w:40,h:T,solid:true,x1:50,x2:200,vx:30,boost:2.4};
-   const d=door(0,15,{upd(e){e.x=mv.x+30;e.y=mv.y-14;e.moving=false;}});
-   return {m, ents:[mv,d]};
+   const d=door(0,15,{off:30,hops:0,upd(e,g){
+     const pc=g.p.x+g.p.w/2;
+     if(g.p.on===mv&&e.hops<3&&Math.abs(pc-(e.x+5))<11){ e.off=e.off===30?0:30; e.hops++; sfx.trap(); say(['Eits!','Sini dong!','Oke oke, terakhir.'][e.hops-1],1.4); }
+     e.x=mv.x+e.off; e.y=mv.y-14; e.moving=false;
+   }});
+   const spk=(tx,a,b,w)=>block(tx,1,a,b,{wait:w,spiky:1,cond:g=>g.p.on===mv});
+   return {m, ents:[mv,d, spk(12,11,12,.05), spk(19,18,19,.12), pop(3,4,14,3,4,{cond:g=>g.p.on===mv})], helpAt:3, help:'Pintunya kabur 3x. Sabar.'};
  }},
  {name:'Mati Lampu', hint:'Kok gelap ya?', dark:true, build(){
    const m=blank(); pit(m,8,9); pit(m,19,21); const e=[];
@@ -354,6 +409,8 @@ const ORDER=['Pemanasan','Duri Nongol','Ngebut','Kaki Pegel','Atap Berduri','Pin
  'Gabungan','Mati Lampu','Dikejar','Kejar Kebalik','Penutupan','Bos Terakhir'];
 LEVELS.sort((a,b)=>ORDER.indexOf(a.name)-ORDER.indexOf(b.name));
 
+const QUIPS=['Bentar, istirahat dulu...','Capek mati terus.','Ya ampunnn...','Rebahan dulu ah.','Aduh, sakit.',
+ 'Mati lagi, mati lagi.','Kok gitu sih?','Gak lagi-lagi. (bohong)','Lantainya jahat.','Huhu... helmku.','Nyawa tinggal... eh banyak.','Sabar... sabar...'];
 const TAUNT=['Yakin bisa?','Udah ketebak harusnya.','Hati hati, katanya.','Lagi dong.','Pelan-pelan aja.',
  'Helmnya gak nolong ya.','Hampir... (bohong)','Coba lagi, bos.','Itu tadi jebakan.','Waduh.'];
 
@@ -371,7 +428,6 @@ function loadLevel(i,fresh){
   g.state='play';
   if(fresh) say(L.hint,3);
   else if(b.help&&g.lvDeaths>=b.helpAt) say(b.help,3);
-  else say(TAUNT[(Math.random()*TAUNT.length)|0],1.8);
   if(fresh&&g.L.rev) say(L.hint,3);
 }
 
@@ -387,7 +443,8 @@ function solids(r){
 
 function die(){
   if(g.state!=='play') return;
-  g.state='dead'; g.deadT=.75; g.shake=.25; save.deaths++; g.lvDeaths++; store(); sfx.die();
+  g.state='dead'; g.deadT=0; g.shake=.25; save.deaths++; g.lvDeaths++; store(); sfx.die();
+  g.quip=QUIPS[(Math.random()*QUIPS.length)|0];
   const p=g.p, cols=[C.gold,'#4a78dc','#ffaab4',C.ink];
   for(let i=0;i<18;i++) g.parts.push({x:p.x+p.w/2,y:p.y+p.h/2,vx:(Math.random()-.5)*220,vy:-Math.random()*240-40,c:cols[i%4],l:.9});
 }
@@ -413,8 +470,25 @@ function update(dt){
     if(jp){ audioInit();
       if(g.state==='done'){ save.deaths=0; save.lv=0; store(); }
       if(!g.t0||g.state==='done') g.t0=performance.now();
-      loadLevel(save.lv,true);
+      g.state='intro'; g.introT=0; g.introY=0; g.introVy=0; g.introDead=0; g.introOpen=0; g.ix=0; g.ifc=1; g.iwalk=0; g.letter=null; g.fallInHole=0; g.deadAt=0; g.introMsg='';
     }
+    return;
+  }
+  if(g.state==='intro'){
+    g.introT+=dt;
+    const kill=msg=>{ if(g.introDead) return; g.introDead=1; g.introMsg=msg; g.deadAt=g.introT; save.deaths++; store(); sfx.die(); g.shake=.3; };
+    if(!g.introOpen){ const d=(keys.r?1:0)-(keys.l?1:0); g.ix=Math.max(-115,Math.min(115,g.ix+d*70*dt)); if(d){g.ifc=d;g.iwalk+=dt;} else g.iwalk=0; }
+    if(g.introT>1.5&&!g.introOpen){ g.introOpen=1; sfx.trap();
+      if(Math.abs(g.ix)<26) g.fallInHole=1;
+      else { const right=g.ix>0; g.letter={ch:right?'I':'H', x:right?W/2+36:W/2-36, y:50, vy:-60, tx:null, rot:0, landed:0}; say('',0); } }
+    if(g.fallInHole){ g.introVy+=GRAV*.7*dt; g.introY+=g.introVy*dt; if(g.introY>40) kill('Baru mulai udah mati.'); }
+    const L=g.letter;
+    if(L){ if(!L.landed){ L.vy+=GRAV*.8*dt; L.y+=L.vy*dt;
+        if(L.y+24>=H-31-34&&Math.abs(L.x-(W/2+g.ix))<24) kill('Ketiban huruf '+L.ch+'.');
+        if(L.y>=H-31-24){ L.y=H-31-24; L.landed=1; g.shake=.2; sfx.crack(); } }
+      else if(L.ch==='I') L.rot=Math.min(Math.PI/2,L.rot+dt*9); }
+    if(L&&L.landed&&!g.introDead){ L.safeT=(L.safeT||0)+dt; if(L.safeT>1.2||jp){ g.introOpen=0; g.letter=null; loadLevel(save.lv,true); say('Lolos... kali ini.',2.5); return; } }
+    if(g.introDead&&(g.introT-g.deadAt>2.4||(jp&&g.introT-g.deadAt>.4))){ g.introOpen=0; g.letter=null; loadLevel(save.lv,true); }
     return;
   }
   if(g.state==='trans'){ g.fade+=dt*2.5; if(g.fade>=1){ g.nextFn(); g.fade=1; } return; }
@@ -422,7 +496,7 @@ function update(dt){
   for(const q of g.parts){ q.vy+=GRAV*.8*dt; q.x+=q.vx*dt; q.y+=q.vy*dt; q.l-=dt; }
   g.parts=g.parts.filter(q=>q.l>0);
 
-  if(g.state==='dead'){ g.deadT-=dt; if(g.deadT<=0) loadLevel(g.lv,false); return; }
+  if(g.state==='dead'){ g.deadT+=dt; if(jp&&g.deadT>.75) loadLevel(g.lv,false); return; }
 
   const p=g.p; g.lvTime+=dt;
   if(g.fade>0) g.fade=Math.max(0,g.fade-dt*3);
@@ -470,7 +544,7 @@ function update(dt){
           const by=Math.floor((e.y+e.h)/T), tx=Math.floor((e.x+1)/T);
           if(tile(tx,by)==='#'){ e.y=by*T-e.h; e.st=2; e.solid=true; g.shake=.12; }
           else for(const o of g.ents) if(o!==e&&o.kind==='block'&&o.st===2&&o.x===e.x&&e.y+e.h>o.y){ e.y=o.y-e.h; e.st=2; e.solid=true; }
-          if(e.st===1&&ov(p,e)) die();
+          if(e.st===1&&ov(p,{x:e.x,y:e.y,w:e.w,h:e.h+(e.spiky?6:0)})) die();
         }
         break;
       case 'inv': if(p.on===e) e.seen=true; break;
@@ -533,6 +607,30 @@ function sprite(x,y,face,frame,scale=1){
     const ch=rows[r][face<0?9-c:c]; if(ch!=='.') px(x+c*scale,y+r*scale,scale,scale,PAL[ch]);
   }
 }
+function drawDeathCard(a){
+  ctx.globalAlpha=a; px(0,0,W,H,'#2a2a2f');
+  const cx=W/2-52, top=46, base=118;
+  // sorotan lampu
+  ctx.fillStyle='rgba(255,255,255,.07)'; ctx.beginPath(); ctx.moveTo(cx-7,top); ctx.lineTo(cx+7,top); ctx.lineTo(cx+26,base); ctx.lineTo(cx-26,base); ctx.fill();
+  ctx.fillStyle='rgba(255,255,255,.16)'; ctx.beginPath(); ctx.ellipse(cx,base,28,5,0,0,Math.PI*2); ctx.fill();
+  // garis-garis jatuh
+  for(let k=0;k<6;k++){ const lx=cx-24+k*9+(k%2?3:0), ph=(g.anim*0.9+k*.37)%1; ctx.globalAlpha=a*(1-ph)*.8;
+    px(lx,top+8+ph*40,1,8+(k%3)*3,'#d8d8d8'); }
+  ctx.globalAlpha=a;
+  // karakter mati (mata X)
+  const sx=cx-15, sy=base-36; sprite(sx,sy,1,null,3);
+  px(sx+9,sy+12,15,6,'#ffaab4');
+  for(const ex of [sx+9,sx+18]){ for(let d=0;d<4;d++){ px(ex+d,sy+12+d,1,1,C.ink); px(ex+3-d,sy+12+d,1,1,C.ink);} }
+  px(sx+12,sy+17,6,1,C.ink);
+  text('x '+save.deaths,W/2-2,70,16,C.gold,'left');
+  text(g.quip||'',W/2,130,7,C.bg);
+  if(g.deadT>.75&&Math.floor(g.anim*2.2)%2===0) text('Tekan ▲ buat lanjut',W/2,148,7,C.gold);
+  ctx.globalAlpha=1;
+}
+function spriteLying(x,y){ // karakter rebahan: kepala di kiri
+  for(let r=0;r<12;r++)for(let c=0;c<10;c++){ const ch=SPR[r][c]; if(ch!=='.') px(x+r,y+(9-c),1,1,PAL[ch]); }
+  px(x+4,y+3,1,1,C.ink); px(x+4,y+6,1,1,C.ink); // mata merem
+}
 function spikes(x,y,w,hgt){
   ctx.fillStyle=C.ink;
   for(let sx=x;sx<x+w;sx+=5){ ctx.beginPath(); ctx.moveTo(sx,y+hgt); ctx.lineTo(sx+2.5,y); ctx.lineTo(sx+5,y+hgt); ctx.fill(); }
@@ -567,7 +665,7 @@ function draw(){
   let sx=0,sy=0; if(g.shake>0){sx=(Math.random()-.5)*3;sy=(Math.random()-.5)*3;}
   ctx.save(); ctx.translate(Math.round(sx),Math.round(sy));
 
-  if(g.state==='menu'||g.state==='done'){ drawMenu(); ctx.restore(); return; }
+  if(g.state==='menu'||g.state==='done'||g.state==='intro'){ drawMenu(); ctx.restore(); return; }
 
   px(0,0,W,H,C.bg);
   for(let ty=0;ty<ROWS;ty++)for(let tx=0;tx<COLS;tx++){
@@ -580,7 +678,7 @@ function draw(){
     if(e.kind==='crumble'){ const j=(e.t>0&&e.solid)?Math.round((Math.random()-.5)*1.4):0;
       px(e.x+j,e.y,T,T,C.wall); px(e.x+j,e.y,T,2,C.wallL); if(e.t>0){px(e.x+3+j,e.y+3,1,4,C.crack);px(e.x+6+j,e.y+5,1,3,C.crack);} }
     else if(e.kind==='fake'){ px(e.x,e.y,T,T,C.wall); px(e.x,e.y,T,2,C.wallL); }
-    else if(e.kind==='block'){ px(e.x,e.y,T,T,C.wall); px(e.x,e.y+T-2,T,2,C.wallD); if(e.st===0&&e.fired) px(e.x+2,e.y+T,6,1,C.wallD); }
+    else if(e.kind==='block'){ px(e.x,e.y,T,T,C.wall); px(e.x,e.y+T-1,T,1,C.wallD); if(e.st===2) px(e.x,e.y,T,2,C.wallL); if(e.spiky&&e.st<2) spikesDown(e.x,e.y+T,T,6); }
     else if(e.kind==='inv'&&e.seen){ ctx.globalAlpha=.35; px(e.x,e.y,T,T,C.wall); ctx.globalAlpha=1; }
     else if(e.kind==='pop'&&e.up>0) spikes(e.x,e.y+e.h-6*e.up,e.w,6*e.up);
     else if(e.kind==='door') drawDoor(e);
@@ -598,6 +696,7 @@ function draw(){
   }
   for(const q of g.parts) px(Math.round(q.x),Math.round(q.y),2,2,q.c);
 
+
   if(g.L&&g.L.dark&&(g.state==='play'||g.state==='dead')){
     const p=g.p, cx=p.x+p.w/2, cy=p.y+p.h/2;
     ctx.save(); ctx.beginPath(); ctx.rect(0,0,W,H); ctx.arc(cx,cy,42,0,Math.PI*2,true);
@@ -607,7 +706,8 @@ function draw(){
   text((DEV?'DEV · ':'')+'MATI '+save.deaths,W-4,1,8,C.bg,'right');
   if(g.L.name==='Sabar'&&g.ents[2].locked&&g.idle>.5){ const n=Math.max(0,7-g.idle); text('.'.repeat(Math.ceil(7-n)),W/2,1,8,C.gold); }
 
-  if(g.banner>0){ const a=Math.min(1,g.banner*2); ctx.globalAlpha=a;
+  if(g.state==='dead'&&g.deadT>.55){ drawDeathCard(Math.min(1,(g.deadT-.55)*4)); }
+  else if(g.banner>0){ const a=Math.min(1,g.banner*2); ctx.globalAlpha=a;
     px(0,62,W,30,C.ink); text(g.L.name.toUpperCase(),W/2,68,12,C.gold); text('Level '+(g.lv+1),W/2,83,6,C.bg); ctx.globalAlpha=1; }
   else if(g.msgT>0){ ctx.globalAlpha=Math.min(1,g.msgT*3);
     const w=Math.min(W-12,g.msg.length*8+14); px((W-w)/2,22,w,16,C.ink); text(g.msg,W/2,26,8,C.bg); ctx.globalAlpha=1; }
@@ -622,13 +722,28 @@ function drawMenu(){
   px(0,H-31,W,2,C.wallL);
   spikes(40,H-36,30,6); spikes(250,H-36,30,6);
   const bob=Math.round(Math.sin(g.anim*3)*2);
-  if(g.state==='menu'){
+  if(g.state==='menu'||g.state==='intro'){
     text('HATI',W/2,22,24,C.ink); text('HATI',W/2,20,24,C.gold);
-    text('HATI',W/2,52,24,C.ink); text('HATI',W/2,50,24,C.bg);
-    sprite(W/2-15,H-31-36+bob,1,null,3);
+    for(let i=0;i<4;i++){ const ch='HATI'[i]; if(g.state==='intro'&&g.letter&&((g.letter.ch==='H'&&i===0)||(g.letter.ch==='I'&&i===3))) continue;
+      text(ch,W/2-36+i*24,52,24,C.ink); text(ch,W/2-36+i*24,50,24,C.bg); }
+    if(g.state==='intro'){
+      if(g.introOpen){ px(W/2-21,H-31,42,31,'#0e1f1c'); spikes(W/2-20,H-8,40,8); }
+      const chx=Math.round(W/2-15+g.ix);
+      if(!g.introDead){ const fr=g.fallInHole?SPR_AIR:(g.iwalk>0?((Math.floor(g.iwalk*8)%2)?SPR_W1:SPR_W2):null);
+        sprite(chx,H-31-36+Math.round(g.introY),g.ifc,fr,3); }
+      else if(!g.fallInHole){ ctx.save(); ctx.translate(chx,H-31); ctx.scale(1,.22); sprite(0,-36,g.ifc,null,3); ctx.restore(); }
+      if(g.fallInHole&&!g.introDead) text('Lho?',W/2+22,H-80,8,C.gold,'left');
+      const L=g.letter;
+      if(L){ ctx.save(); ctx.translate(Math.round(L.x),Math.round(L.y)+12); ctx.rotate(L.rot);
+        if(L.rot>0) ctx.translate(0,L.rot/(Math.PI/2)*8);
+        text(L.ch,0,-10,24,C.ink); text(L.ch,0,-12,24,C.bg); ctx.restore();
+        if(!g.introDead&&!L.landed) text('!!',chx+30,H-80,8,C.gold,'left'); }
+      if(g.introDead){ px(W/2-90,96,180,24,C.ink); text(g.introMsg,W/2,100,7,C.gold); text('MATI KE-'+save.deaths,W/2,111,6,C.bg); }
+    } else sprite(W/2-15,H-31-36+bob,1,null,3);
     const blink=Math.floor(g.anim*2)%2===0;
-    if(blink) text('Tekan ▲ buat mulai',W/2,90,8,C.bg);
-    if(DEV){ px(W/2-110,100,220,22,C.ink); text('DEV ◀ ▶  Level '+(save.lv+1)+': '+LEVELS[save.lv].name,W/2,104,6,C.gold); text('pilih level, ▲ buat mulai',W/2,114,5,C.bg); }
+    if(blink&&g.state==='menu') text('Tekan ▲ buat mulai',W/2,90,8,C.bg);
+    if(g.state==='intro'){}
+    else if(DEV){ px(W/2-110,100,220,22,C.ink); text('DEV ◀ ▶  Level '+(save.lv+1)+': '+LEVELS[save.lv].name,W/2,104,6,C.gold); text('pilih level, ▲ buat mulai',W/2,114,5,C.bg); }
     else text(save.lv>0?'Lanjut dari Level '+(save.lv+1):LEVELS.length+' level. Banyak jebakan.',W/2,104,6,C.gold);
     text('Total mati: '+save.deaths,W/2,H-20,6,C.bg);
   } else {
@@ -645,6 +760,7 @@ function drawMenu(){
 let last=performance.now(), accT=0; const STEP=1/60;
 function frame(now){
   accT+=Math.min(.1,(now-last)/1000); last=now;
+  { const show=g.state==='menu'; if(rsEl.hidden===show) rsEl.hidden=!show; }
   while(accT>=STEP){ update(STEP); accT-=STEP; }
   draw(); requestAnimationFrame(frame);
 }
