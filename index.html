@@ -107,7 +107,9 @@ try{const s=JSON.parse(localStorage.getItem('hatihati')); if(s) save=Object.assi
 function store(){try{localStorage.setItem('hatihati',JSON.stringify(save));}catch(e){}}
 
 /* ---------- input ---------- */
-const DEV=false; // versi uji coba: pilih level di menu. Versi GitHub/Vercel = false
+const DEV=false; // versi uji coba lokal (musik MP3). Versi GitHub/Vercel = false
+// pilih level: nyala di versi uji coba (link preview Vercel / lokal), mati di versi utama
+const PICK=DEV||location.hostname!=='hati-hati-game-troll.vercel.app';
 const keys={l:0,r:0,j:0}; let prevJ=0, prevL=0, prevR=0, jTap=0, lTap=0, rTap=0; // *Tap: tombol yang ditekan-lepas sebelum update sempat jalan
 const km={ArrowLeft:'l',KeyA:'l',ArrowRight:'r',KeyD:'r',Space:'j',ArrowUp:'j',KeyW:'j'};
 addEventListener('keydown',e=>{const k=km[e.code]; if(k){if(k==='j'&&!keys.j) jTap=1; if(k==='l'&&!keys.l) lTap=1; if(k==='r'&&!keys.r) rTap=1; keys[k]=1;e.preventDefault();audioInit();}});
@@ -282,18 +284,24 @@ const LEVELS=[
      if(e.locked&&g.lvTime>20&&!g.saidRest){g.saidRest=1;say('Capek? Istirahat dulu sana.');}
    }})]};
  }},
- {name:'Atap Berduri', hint:'Jangan lompat tinggi-tinggi.', build(){
-   const m=blank(); fill(m,6,1,25,9,'#'); fill(m,6,10,25,10,'v'); pit(m,15,16);
-   for(const x of [10,20]){ m[9][x]='.'; m[10][x]='.'; }
-   return {m, ents:[block(10,9,9,10,{wait:.08,spiky:1}), block(20,9,19,20,{wait:.04,spiky:1}), door(28)], helpAt:3, help:'Tap ▲ sebentar = lompat pendek.'};
+ {name:'Hint Bohong', hint:'Ikutin papannya ya.', build(){
+   const m=blank(); fill(m,11,1,19,9,'#'); fill(m,11,10,19,10,'v'); pit(m,15,17); pit(m,23,24); const e=[];
+   for(let x=15;x<=17;x++) e.push(inv(x,15));
+   e.push({kind:'sign',x:94,y:112,draw(o,g){ px(o.x+21,o.y+16,3,22,C.door); px(o.x,o.y,46,17,C.door); px(o.x+1,o.y+1,44,15,'#e0b878');
+     text('LOMPAT',o.x+23,o.y+3,5,C.ink); text('DI SINI!',o.x+23,o.y+10,5,C.red); }});
+   e.push(door(28)); return {m, ents:e, helpAt:2, help:'Papannya bohong. Jalan terus aja.'};
  }},
  {name:'Ngebut', hint:'Santai, jalan biasa aja.', build(){
    const m=blank(); pit(m,14,15); pit(m,21,22);
    return {m, ents:[zone(7,7,g=>{g.spd=2;say('Lho, kok ngebut?');sfx.trap();}), pop(25,25,14,25,25), door(28)]};
  }},
- {name:'Kaki Pegel', hint:'Lompatannya masih sama kok.', build(){
-   const m=blank(); pit(m,10,11); pit(m,19,20);
-   return {m, ents:[zone(5,5,g=>{g.jmul=.72;say('Kakinya pegel...');sfx.trap();}), door(28)]};
+ {name:'Koin Bom', hint:'Kumpulin koinnya! Bonus.', build(){
+   const m=blank(); pit(m,9,10); pit(m,20,21); const e=[];
+   for(const x of [4,15,25]) e.push({kind:'coin',x:x*T+2,y:142,w:6,h:6,
+     upd(c,g){ if(!c.gone&&ov(g.p,c)){ c.gone=1; say('BOOM! Koinnya bom.',2); die(); } },
+     draw(c,g){ if(c.gone) return; const w=Math.max(1,Math.round(6*Math.abs(Math.cos(g.anim*3+c.x)))), x=c.x+Math.floor((6-w)/2);
+       px(x,c.y,w,6,C.gold); if(w>2) px(x+1,c.y+1,1,2,'#fff4dc'); }});
+   e.push(door(28)); return {m, ents:e, helpAt:2, help:'Koinnya jebakan. Lompatin!'};
  }},
  {name:'Tangga Rapuh', hint:'Naik terus, jangan berhenti.', build(){
    const m=blank(); pit(m,5,30); fill(m,21,4,29,4,'#'); const e=[];
@@ -321,12 +329,11 @@ const LEVELS=[
    for(let x=9;x<=23;x++){ m[11][x]='.'; e.push(block(x,11,x-1,x,{wait:.15})); }
    e.push(pop(17,17,14,16,17)); e.push(door(28)); return {m, ents:e};
  }},
- {name:'Kebalik Lagi', hint:'Kontrolnya aman. Serius.', rev:true, build(){
-   const m=blank(); pit(m,8,9); pit(m,13,17); const e=[];
-   for(let x=13;x<=17;x++) e.push(crumble(x,15,x===15?0:.22));
-   e.push(zone(20,20,g=>{g.rev=false;say('Udah normal. Atau belum?');sfx.trap();}));
-   e.push(zone(24,24,g=>{g.rev=true;sfx.trap();}));
-   e.push(pop(23,23,14,22,23)); e.push(door(28)); return {m, ents:e};
+ {name:'Checkpoint Bohong', hint:'Ada checkpoint! Aman.', build(){
+   const m=blank(); pit(m,8,9); pit(m,22,23);
+   const f={kind:'flag',x:130,y:126,w:12,h:24,on:0,upd(f,g){ if(!f.on&&ov(g.p,f)){ f.on=1; sfx.door(); say('Tersimpan!',1.6); } },
+     draw(f,g){ px(f.x+1,f.y,2,24,C.door); px(f.x+3,f.y+1,9,6,f.on?C.gold:C.red); }};
+   return {m, ents:[f, pop(16,17,14,15,17,{cond:g=>f.on}), door(28)], helpAt:1, help:'Tersimpan... di hati.'};
  }},
  {name:'Dikejar', hint:'Lari!', build(){
    const m=blank(); pit(m,9,10); pit(m,17,18); fill(m,13,13,13,14,'#'); fill(m,22,12,22,14,'#');
@@ -345,9 +352,21 @@ const LEVELS=[
    }}));
    return {m, ents:e};
  }},
- {name:'Naik Lift', hint:'Tunggu liftnya dateng.', build(){
-   const m=blank(); pit(m,5,26);
-   return {m, ents:[{kind:'mover',x:50,y:130,w:30,h:T,solid:true,x1:50,x2:230,vx:40,crumbleAt:212}, pop(28,28,14,27,27), door(29)]};
+ {name:'Pura-pura Mati', hint:'Injak slime-nya!', build(){
+   const m=blank();
+   const sl={kind:'slime',x:130,y:143,w:12,h:7,vx:-25,vy:0,st:'walk',t:0,lives:2,upd(s,g){
+     const p=g.p; s.t+=g.dt;
+     if(s.st==='walk'){ s.x+=s.vx*g.dt; if(s.x<40){s.x=40;s.vx=Math.abs(s.vx);} if(s.x>262){s.x=262;s.vx=-Math.abs(s.vx);}
+       if(ov(p,s)){ if(p.vy>0&&p.y+p.h-s.y<8){ p.vy=-220; p.ground=false; p.spr=1; s.lives--; s.st=s.lives>0?'flat':'dead'; s.t=0; sfx.crack();
+           say(s.lives>0?'Yes! Slime-nya kalah.':'Oke, beneran mati.',1.6); } else die(); } }
+     else if(s.st==='flat'){ if(s.t>.5&&p.x>s.x+s.w+4){ const tx=p.x+80; sfx.trap(); say('Pura-pura mati doang!',1.6);
+       if(tx>255){ s.st='walk'; s.vx=40; } else { s.st='hop'; s.vy=-240; s.vx=(tx-s.x)/.436; } } }
+     else if(s.st==='hop'){ s.x+=s.vx*g.dt; s.vy+=GRAV*g.dt; s.y+=s.vy*g.dt; if(s.y>=143){ s.y=143; s.st='walk'; s.vx=-30; } }
+   }, draw(s,g){ const x=Math.round(s.x), y=Math.round(s.y);
+     if(s.st==='flat'||s.st==='dead'){ px(x-1,y+4,s.w+2,3,'#4fae4a'); px(x+3,y+4,2,1,C.ink); px(x+8,y+4,2,1,C.ink); return; }
+     px(x+2,y,s.w-4,1,'#4fae4a'); px(x,y+1,s.w,s.h-1,'#4fae4a'); px(x+2,y+1,2,1,'#8fe08a');
+     const d=s.vx<0?-1:1; px(x+4+d,y+2,1,2,C.ink); px(x+8+d,y+2,1,2,C.ink); }};
+   return {m, ents:[sl, door(28)], helpAt:2, help:'Slime-nya bangun lagi. Lompatin!'};
  }},
  {name:'Lubang Dadakan', hint:'Lantainya rata kok.', build(){
    const m=blank(); pit(m,8,9); pit(m,13,14); pit(m,18,26); const e=[];
@@ -371,9 +390,12 @@ const LEVELS=[
    return {m, ents:[{kind:'mover',x:50,y:130,w:30,h:T,solid:true,x1:50,x2:120,vx:40},
      {kind:'mover',x:230,y:110,w:30,h:T,solid:true,x1:150,x2:230,vx:-45,fallAfter:.6}, door(28)]};
  }},
- {name:'Ngebut Kebalik', hint:'Pelan-pelan... eh.', rev:true, spd:1.6, build(){
-   const m=blank(); pit(m,9,10); pit(m,17,18);
-   return {m, ents:[pop(23,23,14,22,23), door(28)]};
+ {name:'Kamera Nakal', hint:'Kameranya stabil kok.', build(){
+   const m=blank(); pit(m,8,9); pit(m,22,23);
+   return {m, ents:[{kind:'logic',st:0,t:0,upd(o,g){ const pc=g.p.x+g.p.w/2;
+     if(o.st===0&&pc>=140){ o.st=1; sfx.trap(); say('Eh, kameranya geser!',1.8); }
+     if(o.st===1){ o.t+=g.dt; const k=o.t<.4?o.t/.4:o.t<2.8?1:Math.max(0,1-(o.t-2.8)/.4); g.cam=Math.round(110*k); if(o.t>=3.2){ o.st=2; g.cam=0; } }
+   }}, door(28)], helpAt:2, help:'Tunggu kameranya balik dulu.'};
  }},
  {name:'Tangga Gaib', hint:'Tangganya ada. Percaya deh.', build(){
    const m=blank(); pit(m,5,30); fill(m,21,4,29,4,'#'); const e=[];
@@ -381,15 +403,21 @@ const LEVELS=[
    e.push(pop(24,24,3,23,24)); e.push(door(27,4));
    return {m, ents:e, helpAt:2, help:'Lompat ke atas, ada pijakan gaib.'};
  }},
- {name:'Kejar Kebalik', hint:'Lari! Ke... arah mana ya?', rev:true, build(){
-   const m=blank(); pit(m,8,9); pit(m,15,16); fill(m,20,13,20,14,'#');
-   return {m, ents:[zone(12,12,g=>{g.rev=false;say('Nah, normal.');sfx.trap();}),
-     {kind:'chase',x:-12,y:10,w:10,h:140,spd:48,wait:1.5}, pop(24,24,14,23,24), door(28)]};
+ {name:'Loading Palsu', hint:'Tunggu loading ya.', build(){
+   const m=blank(); pit(m,10,11); pit(m,18,19);
+   const ch={kind:'chase',x:-12,y:10,w:10,h:140,spd:13,wait:.2,go:1}; // go:1 = jangan teriak 'Lari!!', biar ketipu loading
+   return {m, ents:[ch, {kind:'logic',upd(o,g){ if(!o.done&&g.lvTime>=2.8){ o.done=1; ch.spd=36; say('Loadingnya bohong. Lari!',1.8); } },
+     drawTop(o,g){ if(o.done) return; const k=Math.min(.99,g.lvTime/2.4);
+       px(40,46,240,62,C.ink); text('Loading level...',W/2,54,8,C.bg); px(60,72,200,10,C.bg); px(62,74,Math.round(196*k),6,C.gold);
+       text(Math.floor(k*100)+'%',W/2,90,6,C.gold); }}, door(28)], helpAt:2, help:'Jangan nunggu loading. Langsung lari!'};
  }},
- {name:'Lorong Duri', hint:'Lompat kecil-kecil aja.', build(){
-   const m=blank(); fill(m,6,1,25,9,'#'); fill(m,6,10,25,10,'v'); pit(m,10,11); pit(m,18,19);
-   for(const x of [7,14,21]){ m[9][x]='.'; m[10][x]='.'; }
-   return {m, ents:[block(7,9,6,7,{wait:.05,spiky:1}), block(14,9,13,14,{wait:.06,spiky:1}), block(21,9,21,21,{wait:0,spiky:1}), pop(23,23,14,22,23), door(28)]};
+ {name:'Pause Palsu', hint:'Capek? Pencet pause aja.', build(){
+   const m=blank(); fill(m,6,1,25,9,'#'); fill(m,6,10,25,10,'v'); fill(m,1,1,5,1,'v'); fill(m,26,1,30,1,'v');
+   for(const x of [7,14]){ m[9][x]='.'; m[10][x]='.'; }
+   const pz={kind:'pause',x:W/2-9,y:13,w:18,h:16,
+     tap(o,g,x,y){ if(x>=o.x-10&&x<=o.x+o.w+10&&y>=o.y-10&&y<=o.y+o.h+10) fakePause(); },
+     draw(o,g){ px(o.x,o.y,o.w,o.h,C.ink); px(o.x+4,o.y+3,3,10,C.bg); px(o.x+11,o.y+3,3,10,C.bg); }};
+   return {m, ents:[block(7,9,7,7,{wait:0,spiky:1}), block(14,9,14,14,{wait:0,spiky:1}), pz, door(28)], helpAt:2, help:'Jangan pencet pause. Jalan aja.'};
  }},
  {name:'Pintu Jalan-jalan', hint:'Pintunya lagi jalan-jalan.', build(){
    const m=blank(); pit(m,5,26);
@@ -507,9 +535,20 @@ const LEVELS=[
    e.push(door(19,15,{fakeWin:1})); e.push(door(28));
    return {m, ents:e, helpAt:2, help:'Pintu tengah itu jebakan. Lompatin!'};
  }},
- {name:'Duri Mundur', hint:'Dari kiri aman kok.', build(){
-   const m=blank(); pit(m,8,9); pit(m,15,16);
-   return {m, ents:[{kind:'chase',x:W+2,y:10,w:10,h:140,spd:-30,wait:1}, door(24)]};
+ {name:'Pintu Password', hint:'Pintunya pakai password.', build(){
+   const m=blank(); pit(m,8,9); pit(m,15,16); pit(m,24,29); const e=[], fl=[];
+   for(let x=24;x<=29;x++){ const t={kind:'tile',x:x*T,y:15*T,w:T,h:T,solid:true}; fl.push(t); e.push(t); }
+   const d=door(28,15,{locked:true});
+   e.push({kind:'note',draw(){ text('password: PISANG',13,122,4,C.crack,'left'); }});
+   e.push({kind:'logic',st:0,sel:0,t:0,words:['HATI','PISANG','KUCING'].sort(()=>Math.random()-.5),
+     upd(o,g){ const p=g.p; if(o.st===0&&p.ground&&p.x+p.w/2>=250){ o.st=1; o.t=0; g.pw=o; p.vx=0; sfx.trap(); } },
+     pick(o,g){ o.st=2; g.pw=null;
+       if(o.words[o.sel]==='PISANG'){ d.locked=false; sfx.door(); say('Benar! Silakan masuk.',2); }
+       else { for(const t of fl) t.solid=false; sfx.trap(); say('Salah! Lantainya ambrol.',2); } },
+     drawTop(o,g){ if(o.st!==1) return; px(50,40,220,70,C.ink); text('PASSWORD?',W/2,48,8,C.gold);
+       o.words.forEach((w,i)=>{ const x=W/2+(i-1)*68; if(i===o.sel){ px(x-32,64,64,16,C.gold); px(x-31,65,62,14,C.ink); } text(w,x,69,6,i===o.sel?C.gold:C.bg); });
+       text('◀ ▶ pilih · ▲ oke',W/2,94,5,C.bg); }});
+   e.push(d); return {m, ents:e, helpAt:2, help:'Passwordnya ada di tembok awal.'};
  }},
  {name:'Lift Gergaji', hint:'Naik lift lagi.', build(){
    const m=blank(); pit(m,5,26);
@@ -547,12 +586,12 @@ const LEVELS=[
  }},
 ];
 /* urutan kesulitan: makin ke belakang makin susah */
-const ORDER=['Pemanasan','Duri Nongol','Ngebut','Kaki Pegel','Atap Berduri','Pintu Kabur','Lorong Duri','Naik Lift',
+const ORDER=['Pemanasan','Duri Nongol','Ngebut','Koin Bom','Hint Bohong','Pintu Kabur','Pause Palsu','Pura-pura Mati',
  'Lantai Rapuh','Lubang Dadakan','Pintu Palsu','Kebalik','Percaya Aja','Awas Atas','Pintu Nakal','Jalan Gaib',
- 'Tangga Gaib','Tangga Rapuh','Pintu Jalan-jalan','Sabar','Lift Rapuh','Ngebut Kebalik','Kebalik Lagi','Atap Turun',
- 'Gabungan','Mati Lampu','Dikejar','Kejar Kebalik','Penutupan','Bos Terakhir',
+ 'Tangga Gaib','Tangga Rapuh','Pintu Jalan-jalan','Sabar','Lift Rapuh','Kamera Nakal','Checkpoint Bohong','Atap Turun',
+ 'Gabungan','Mati Lampu','Dikejar','Loading Palsu','Penutupan','Bos Terakhir',
  'Pegas Nakal','Gergaji','Duri Jalan','Dinding Gaib','Mati Dulu','Jangan Lompat','Jangan Diam','Lantai Ombak','Gravitasi Bulan','Kunci Kabur',
- 'Cermin','Gergaji Lantai','Banjir Duri','Penghancur','Menang Palsu','Duri Mundur','Lift Gergaji','Pintu di Atas','Campur Aduk','Raja Troll'];
+ 'Cermin','Gergaji Lantai','Banjir Duri','Penghancur','Menang Palsu','Pintu Password','Lift Gergaji','Pintu di Atas','Campur Aduk','Raja Troll'];
 LEVELS.sort((a,b)=>ORDER.indexOf(a.name)-ORDER.indexOf(b.name));
 
 const QUIPS=['Bentar, istirahat dulu...','Capek mati terus.','Ya ampunnn...','Rebahan dulu ah.','Aduh, sakit.',
@@ -569,7 +608,7 @@ function loadLevel(i,fresh){
   const L=LEVELS[i], b=L.build();
   g.lv=i; g.m=b.m; g.ents=b.ents; g.L=L; g.extra=b;
   g.p={x:2*T+1,y:150-11,w:7,h:11,vx:0,vy:0,ground:false,co:0,jb:0,face:1,on:null,walk:0};
-  g.rev=!!L.rev; g.spd=L.spd||1; g.jmul=1; g.gmul=L.gmul||1; g.hasKey=0; g.fakeBanner=0; g.idle=0; g.lvTime=0; g.parts=[]; g.saidRest=0;
+  g.rev=!!L.rev; g.cam=0; g.pw=null; g.spd=L.spd||1; g.jmul=1; g.gmul=L.gmul||1; g.hasKey=0; g.fakeBanner=0; g.idle=0; g.lvTime=0; g.parts=[]; g.saidRest=0;
   if(fresh){g.lvDeaths=0; g.banner=2;}
   g.state='play';
   if(fresh) say(L.hint,3);
@@ -586,6 +625,13 @@ function solids(r){
   for(const e of g.ents) if(e.solid&&ov(r,e)) out.push({x:e.x,y:e.y,w:e.w,h:e.h,ent:e});
   return out;
 }
+
+// level 'Pause Palsu': pause bohongan, karakter malah dilempar ke atas (ke duri)
+function fakePause(){
+  if(g.state!=='play'||!g.ents.some(e=>e.kind==='pause')) return;
+  const p=g.p; p.vy=-560; p.spr=1; p.ground=false; p.co=0; sfx.jump(); say('Pause? Nggak ada pause.',2.2);
+}
+addEventListener('keydown',e=>{ if(e.code==='KeyP') fakePause(); });
 
 function die(){
   if(g.state!=='play') return;
@@ -611,7 +657,7 @@ function update(dt){
   if(g.fakeBanner>0) g.fakeBanner-=dt;
   const jp=(keys.j&&!prevJ)||jTap; jTap=0; prevJ=keys.j;
   const lp=(keys.l&&!prevL)||lTap, rp=(keys.r&&!prevR)||rTap; lTap=rTap=0; prevL=keys.l; prevR=keys.r;
-  if(DEV&&g.state==='menu'&&(lp||rp)){ save.lv=(save.lv+(rp?1:-1)+LEVELS.length)%LEVELS.length; store(); sfx.crack(); }
+  if(PICK&&g.state==='menu'&&(lp||rp)){ save.lv=(save.lv+(rp?1:-1)+LEVELS.length)%LEVELS.length; store(); sfx.crack(); }
 
   if(g.state==='chars'){
     if(lp||rp){ g.pick=(g.pick+(rp?1:-1)+CHARS.length)%CHARS.length; save.char=g.pick; store(); sfx.crack(); }
@@ -650,6 +696,10 @@ function update(dt){
 
   if(g.state==='dead'){ g.deadT+=dt; if(jp&&g.deadT>.75) loadLevel(g.lv,false); return; }
 
+  if(g.pw){ const o=g.pw; o.t+=dt; g.p.vx=0;
+    if(lp||rp){ o.sel=(o.sel+(rp?1:2))%3; sfx.crack(); }
+    if(jp&&o.t>.25) o.pick(o,g);
+    return; }
   const p=g.p; g.lvTime+=dt;
   if(g.fade>0) g.fade=Math.max(0,g.fade-dt*3);
   const any=keys.l||keys.r||keys.j;
@@ -864,6 +914,7 @@ function draw(){
   if(g.state==='chars'){ drawChars(); ctx.restore(); return; }
 
   px(0,0,W,H,C.bg);
+  ctx.save(); if(g.cam){ ctx.translate(g.cam,0); px(-g.cam,0,g.cam,H,C.wall); }
   const mir=g.L&&g.L.mirror; if(mir){ ctx.save(); ctx.translate(W,0); ctx.scale(-1,1); }
   for(let ty=0;ty<ROWS;ty++)for(let tx=0;tx<COLS;tx++){
     const c=g.m[ty][tx];
@@ -872,6 +923,7 @@ function draw(){
     else if(c==='v') spikesDown(tx*T,ty*T,T,6);
   }
   for(const e of g.ents){
+    if(e.draw) e.draw(e,g);
     if(e.kind==='crumble'){ const j=(e.t>0&&e.solid)?Math.round((Math.random()-.5)*1.4):0;
       px(e.x+j,e.y,T,T,C.wall); px(e.x+j,e.y,T,2,C.wallL); if(e.t>0){px(e.x+3+j,e.y+3,1,4,C.crack);px(e.x+6+j,e.y+5,1,3,C.crack);} }
     else if(e.kind==='fake'){ px(e.x,e.y,T,T,C.wall); px(e.x,e.y,T,2,C.wallL); }
@@ -907,6 +959,7 @@ function draw(){
   }
   for(const q of g.parts) px(Math.round(q.x),Math.round(q.y),2,2,q.c);
   if(mir) ctx.restore();
+  ctx.restore();
 
 
   if(g.L&&g.L.dark&&(g.state==='play'||g.state==='dead')){
@@ -915,7 +968,7 @@ function draw(){
     ctx.fillStyle='rgba(16,24,26,.97)'; ctx.fill(); ctx.restore(); }
   // HUD di atas tembok atap
   text('LV '+(g.lv+1)+'/'+LEVELS.length,4,1,8,C.bg,'left');
-  text((DEV?'DEV · ':'')+'MATI '+save.deaths,W-4,1,8,C.bg,'right');
+  text((PICK?'UJI · ':'')+'MATI '+save.deaths,W-4,1,8,C.bg,'right');
   if(g.L.name==='Sabar'&&g.ents[2].locked&&g.idle>.5){ const n=Math.max(0,7-g.idle); text('.'.repeat(Math.ceil(7-n)),W/2,1,8,C.gold); }
 
   if(g.state==='dead'&&g.deadT>.55){ drawDeathCard(Math.min(1,(g.deadT-.55)*4)); }
@@ -926,6 +979,7 @@ function draw(){
   else if(g.msgT>0){ ctx.globalAlpha=Math.min(1,g.msgT*3);
     const fs=g.msg.length*8+14>W-12?7:8, w=Math.min(W-12,g.msg.length*fs+14); px((W-w)/2,22,w,16,C.ink); text(g.msg,W/2,26,fs,C.bg); ctx.globalAlpha=1; }
 
+  if(g.state!=='trans') for(const e of g.ents) if(e.drawTop) e.drawTop(e,g);
   if(g.state==='trans'||g.fade>0){ ctx.globalAlpha=Math.min(1,g.fade); px(0,0,W,H,C.ink); ctx.globalAlpha=1; }
   ctx.restore();
 }
@@ -957,7 +1011,7 @@ function drawMenu(){
     const blink=Math.floor(g.anim*2)%2===0;
     if(blink&&g.state==='menu') text('Tekan ▲ buat mulai',W/2,90,8,C.bg);
     if(g.state==='intro'){}
-    else if(DEV){ px(W/2-110,100,220,22,C.ink); text('DEV ◀ ▶  Level '+(save.lv+1)+': '+LEVELS[save.lv].name,W/2,104,6,C.gold); text('pilih level, ▲ buat mulai',W/2,114,5,C.bg); }
+    else if(PICK){ px(W/2-110,100,220,22,C.ink); text('UJI ◀ ▶  Level '+(save.lv+1)+': '+LEVELS[save.lv].name,W/2,104,6,C.gold); text('pilih level, ▲ buat mulai',W/2,114,5,C.bg); }
     else text(save.lv>0?'Lanjut dari Level '+(save.lv+1):LEVELS.length+' level. Banyak jebakan.',W/2,104,6,C.gold);
     text('Total mati: '+save.deaths,W/2,H-22,6,C.bg);
     if(g.state==='menu') text('☺ = ganti karakter ('+curChar().name+')',W/2,H-11,5,C.gold);
@@ -989,10 +1043,11 @@ function drawChars(){
 }
 // tap di canvas buat milih karakter (tap karakter yang udah kepilih = oke)
 cv.addEventListener('pointerdown',e=>{
-  if(g.state!=='chars') return; e.preventDefault();
+  if(g.state!=='chars'&&g.state!=='play') return; e.preventDefault();
   const r=cv.getBoundingClientRect(), kx=cv.width/r.width, ky=cv.height/r.height;
   const sc=Math.min(cv.width/W, cv.height/H), ox=(cv.width-W*sc)/2, oy=(cv.height-H*sc)/2;
   const gx=((e.clientX-r.left)*kx-ox)/sc, gy=((e.clientY-r.top)*ky-oy)/sc;
+  if(g.state==='play'){ for(const o of g.ents) if(o.tap) o.tap(o,g,gx,gy); return; }
   if(gy<CHAR_Y-10||gy>CHAR_Y+46) return;
   const i=CHARS.findIndex((c,i)=>gx>=charX(i)-8&&gx<=charX(i)+38); if(i<0) return;
   if(i===g.pick) jTap=1; else { g.pick=i; save.char=i; store(); sfx.crack(); }
