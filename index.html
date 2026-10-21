@@ -29,7 +29,9 @@ canvas{display:block;image-rendering:pixelated;border:3px solid var(--line);bord
 .b.on{background:var(--btnOn);color:var(--line);transform:translateY(3px);box-shadow:0 2px 0 var(--line);}
 .b:focus-visible{outline:3px solid var(--btnOn);outline-offset:2px;}
 #bj{width:96px;}
-#bm{width:52px;height:44px;font-size:14px;}
+#bm,#bh,#bc{width:52px;height:44px;font-size:14px;}
+.grp.mid{gap:8px;}
+.b[hidden]{display:none;}
 #breset{position:fixed;top:calc(env(safe-area-inset-top,0px) + 12px);left:50%;transform:translateX(-50%);z-index:5;
   font-family:var(--pix);font-size:9px;padding:9px 12px;border:3px solid var(--line);border-radius:8px;background:var(--panel);color:var(--ink);box-shadow:0 3px 0 var(--line);cursor:pointer;}
 #breset.confirm{background:#e2574c;color:#fff;}
@@ -37,6 +39,12 @@ canvas{display:block;image-rendering:pixelated;border:3px solid var(--line);bord
 #bm.off{opacity:.45;text-decoration:line-through;}
 #tip{display:none;font-size:8px;opacity:.6;text-align:center;line-height:1.6;}
 @media (hover:hover) and (pointer:fine){ #tip{display:block} }
+/* HP sempit (portrait): kecilin dikit biar ⌂/☺ + ♪ muat di satu baris */
+@media (max-width:420px){
+  #pad{gap:8px;} .grp{gap:8px;} .grp.mid{gap:6px;}
+  .b{width:62px;font-size:18px;} #bj{width:76px;}
+  #bm,#bh,#bc{width:42px;font-size:13px;}
+}
 @media (prefers-reduced-motion: reduce){ .b{transition:none} }
 /* Landscape HP: game di atas, baris tombol di bawah (lebih pendek biar game tetap besar) */
 @media (orientation:landscape) and (max-height:560px){
@@ -45,7 +53,7 @@ canvas{display:block;image-rendering:pixelated;border:3px solid var(--line);bord
   #pad{max-width:none;}
   #pad .b{height:50px;width:76px;font-size:16px;}
   #pad #bj{width:120px;}
-  #pad #bm{width:52px;height:40px;}
+  #pad #bm,#pad #bh,#pad #bc{width:52px;height:40px;}
 }
 </style>
 
@@ -58,11 +66,15 @@ canvas{display:block;image-rendering:pixelated;border:3px solid var(--line);bord
       <button class="b" id="bl" aria-label="Kiri">◀</button>
       <button class="b" id="br" aria-label="Kanan">▶</button>
     </div>
-    <button class="b" id="bm" aria-label="Musik nyala/mati">♪</button>
+    <div class="grp mid">
+      <button class="b" id="bh" aria-label="Ke tampilan awal" hidden>⌂</button>
+      <button class="b" id="bc" aria-label="Pilih karakter">☺</button>
+      <button class="b" id="bm" aria-label="Musik nyala/mati">♪</button>
+    </div>
     <button class="b" id="bj" aria-label="Lompat">▲</button>
   </div>
   <button id="breset" type="button">↺ Reset jumlah mati</button>
-  <div id="tip">Keyboard: ← → / A D buat jalan · Spasi / ↑ / W buat lompat</div>
+  <div id="tip">Keyboard: ← → / A D buat jalan · Spasi / ↑ / W buat lompat · Esc ke awal · C pilih karakter</div>
 </div>
 
 <script>
@@ -96,13 +108,13 @@ function store(){try{localStorage.setItem('hatihati',JSON.stringify(save));}catc
 
 /* ---------- input ---------- */
 const DEV=false; // versi uji coba: pilih level di menu. Versi GitHub/Vercel = false
-const keys={l:0,r:0,j:0}; let prevJ=0, prevL=0, prevR=0, jTap=0; // jTap: lompat yang ditekan-lepas sebelum update sempat jalan
+const keys={l:0,r:0,j:0}; let prevJ=0, prevL=0, prevR=0, jTap=0, lTap=0, rTap=0; // *Tap: tombol yang ditekan-lepas sebelum update sempat jalan
 const km={ArrowLeft:'l',KeyA:'l',ArrowRight:'r',KeyD:'r',Space:'j',ArrowUp:'j',KeyW:'j'};
-addEventListener('keydown',e=>{const k=km[e.code]; if(k){if(k==='j'&&!keys.j) jTap=1; keys[k]=1;e.preventDefault();audioInit();}});
+addEventListener('keydown',e=>{const k=km[e.code]; if(k){if(k==='j'&&!keys.j) jTap=1; if(k==='l'&&!keys.l) lTap=1; if(k==='r'&&!keys.r) rTap=1; keys[k]=1;e.preventDefault();audioInit();}});
 addEventListener('keyup',e=>{const k=km[e.code]; if(k){keys[k]=0;e.preventDefault();}});
 [['bl','l'],['br','r'],['bj','j']].forEach(([id,k])=>{
   const el=document.getElementById(id);
-  const on=e=>{e.preventDefault();if(k==='j'&&!keys.j) jTap=1; keys[k]=1;el.classList.add('on');audioInit();};
+  const on=e=>{e.preventDefault();if(k==='j'&&!keys.j) jTap=1; if(k==='l'&&!keys.l) lTap=1; if(k==='r'&&!keys.r) rTap=1; keys[k]=1;el.classList.add('on');audioInit();};
   const off=e=>{e.preventDefault();keys[k]=0;el.classList.remove('on');};
   el.addEventListener('pointerdown',e=>{try{el.setPointerCapture(e.pointerId)}catch(_){}on(e);});
   el.addEventListener('pointerup',off); el.addEventListener('pointercancel',off); el.addEventListener('lostpointercapture',off);
@@ -137,6 +149,14 @@ rsEl.addEventListener('pointerdown',e=>{ e.preventDefault(); e.stopPropagation()
   rsTimer=setTimeout(()=>{rsEl.textContent='↺ Reset jumlah mati';},1500);
 });
 const bmEl=document.getElementById('bm'); if(!mus.on) bmEl.classList.add('off');
+// tombol home (balik ke tampilan awal) & pilih karakter
+const bhEl=document.getElementById('bh'), bcEl=document.getElementById('bc');
+function goHome(){ if(g.state==='menu') return; g.state='menu'; g.fade=0; g.shake=0; g.msgT=0; g.banner=0; g.fakeBanner=0; g.letter=null; g.introOpen=0;
+  keys.l=keys.r=keys.j=0; if(typeof sfx!=='undefined') sfx.crack(); }
+function openChars(){ if(g.state!=='menu') return; g.state='chars'; g.pick=save.char|0; audioInit(); if(typeof sfx!=='undefined') sfx.crack(); }
+bhEl.addEventListener('pointerdown',e=>{e.preventDefault();e.stopPropagation();goHome();});
+bcEl.addEventListener('pointerdown',e=>{e.preventDefault();e.stopPropagation();openChars();});
+addEventListener('keydown',e=>{ if(e.code==='Escape'||e.code==='KeyH') goHome(); else if(e.code==='KeyC') openChars(); });
 // uji coba: pakai file MP3 kalau DEV (tidak ikut versi publik)
 const bgm = DEV ? (()=>{ try{ const a=new Audio('music.mp3'); a.loop=true; a.volume=.2; a.preload='auto'; return a; }catch(e){ return null; } })() : null;
 function syncBgm(){ if(!bgm) return; if(mus.on) bgm.play().catch(()=>{}); else bgm.pause(); }
@@ -590,9 +610,14 @@ function update(dt){
   if(g.banner>0) g.banner-=dt;
   if(g.fakeBanner>0) g.fakeBanner-=dt;
   const jp=(keys.j&&!prevJ)||jTap; jTap=0; prevJ=keys.j;
-  const lp=keys.l&&!prevL, rp=keys.r&&!prevR; prevL=keys.l; prevR=keys.r;
+  const lp=(keys.l&&!prevL)||lTap, rp=(keys.r&&!prevR)||rTap; lTap=rTap=0; prevL=keys.l; prevR=keys.r;
   if(DEV&&g.state==='menu'&&(lp||rp)){ save.lv=(save.lv+(rp?1:-1)+LEVELS.length)%LEVELS.length; store(); sfx.crack(); }
 
+  if(g.state==='chars'){
+    if(lp||rp){ g.pick=(g.pick+(rp?1:-1)+CHARS.length)%CHARS.length; save.char=g.pick; store(); sfx.crack(); }
+    if(jp){ save.char=g.pick; store(); sfx.door(); g.state='menu'; }
+    return;
+  }
   if(g.state==='menu'||g.state==='done'){
     if(jp){ audioInit();
       if(g.state==='done'){ save.deaths=0; save.lv=0; store(); }
@@ -752,11 +777,28 @@ const SPR=[
 const SPR_W1=["..knkknk..",".kk....kk."], SPR_W2=["..knkknk..","...kkkk..."];
 const SPR_AIR=["..knk.nk..",".kk...kk.."];
 const PAL={k:C.ink,y:C.gold,p:'#ffaab4',b:'#4a78dc',n:'#7a5032'};
+// karakter pilihan: badan 10 baris atas beda-beda, kaki (2 baris bawah) sama semua
+const CHARS=[
+  {name:'Si Helm',face:'#ffaab4',pal:{},spr:SPR.slice(0,10)},
+  {name:'Ninja',face:'#ffaab4',pal:{d:'#33334a',r:C.red},spr:[
+    "..........","..kkkkkk..",".kddddddk.",".krrrrrrkr",".kdpkpkdk.",
+    ".kddddddk.","..kkkkkk..",".kddddddk.","kdkddddkdk","..kddddk.."]},
+  {name:'Putri',face:'#ffaab4',pal:{h:'#6b3a1e',b:C.red,y:C.gold},spr:[
+    "..y.y.y...","..kyyyyk..",".khhhhhhk.",".khpppphk.",".khpkpkhk.",
+    ".khpppphk.",".khkkkkhk.",".khbbbbhk.","kpkbbbbkpk",".kbbbbbbk."]},
+  {name:'Kucing',face:'#f08a24',pal:{o:'#f08a24',w:'#fff4dc',p:'#ffaab4'},spr:[
+    ".kk....kk.",".kok..kok.",".kookkook.",".kooooook.",".kokookok.",
+    ".kooppook.","..kkkkkk..",".koowwook.","kokwwwwkok","..kooook.."]},
+  {name:'Robot',face:'#b8bcc8',pal:{s:'#b8bcc8',c:'#5ce1e6',r:C.red,g:'#6d6d76',n:'#3d3d45'},spr:[
+    "....k.....","....r.....",".kkkkkkkk.",".kssssssk.",".ksckkcsk.",
+    ".kssssssk.","..kkkkkk..",".kggggggk.","kskggggksk","..kggggk.."]}
+];
+function curChar(){ return CHARS[save.char|0]||CHARS[0]; }
 function px(x,y,w,h,c){ctx.fillStyle=c;ctx.fillRect(x,y,w,h);}
-function sprite(x,y,face,frame,scale=1){
-  const rows=SPR.slice(0,10).concat(frame||SPR.slice(10));
+function sprite(x,y,face,frame,scale=1,who){
+  const ch0=who||curChar(), rows=ch0.spr.concat(frame||SPR.slice(10));
   for(let r=0;r<12;r++)for(let c=0;c<10;c++){
-    const ch=rows[r][face<0?9-c:c]; if(ch!=='.') px(x+c*scale,y+r*scale,scale,scale,PAL[ch]);
+    const ch=rows[r][face<0?9-c:c]; if(ch!=='.') px(x+c*scale,y+r*scale,scale,scale,ch0.pal[ch]||PAL[ch]);
   }
 }
 function drawDeathCard(a){
@@ -771,7 +813,7 @@ function drawDeathCard(a){
   ctx.globalAlpha=a;
   // karakter mati (mata X)
   const sx=cx-15, sy=base-36; sprite(sx,sy,1,null,3);
-  px(sx+9,sy+12,15,6,'#ffaab4');
+  px(sx+9,sy+12,15,6,curChar().face);
   for(const ex of [sx+9,sx+18]){ for(let d=0;d<4;d++){ px(ex+d,sy+12+d,1,1,C.ink); px(ex+3-d,sy+12+d,1,1,C.ink);} }
   px(sx+12,sy+17,6,1,C.ink);
   text('x '+save.deaths,W/2-2,70,16,C.gold,'left');
@@ -780,7 +822,8 @@ function drawDeathCard(a){
   ctx.globalAlpha=1;
 }
 function spriteLying(x,y){ // karakter rebahan: kepala di kiri
-  for(let r=0;r<12;r++)for(let c=0;c<10;c++){ const ch=SPR[r][c]; if(ch!=='.') px(x+r,y+(9-c),1,1,PAL[ch]); }
+  const who=curChar(), rows=who.spr.concat(SPR.slice(10));
+  for(let r=0;r<12;r++)for(let c=0;c<10;c++){ const ch=rows[r][c]; if(ch!=='.') px(x+r,y+(9-c),1,1,who.pal[ch]||PAL[ch]); }
   px(x+4,y+3,1,1,C.ink); px(x+4,y+6,1,1,C.ink); // mata merem
 }
 function spikes(x,y,w,hgt){
@@ -818,6 +861,7 @@ function draw(){
   ctx.save(); ctx.translate(Math.round(sx),Math.round(sy));
 
   if(g.state==='menu'||g.state==='done'||g.state==='intro'){ drawMenu(); ctx.restore(); return; }
+  if(g.state==='chars'){ drawChars(); ctx.restore(); return; }
 
   px(0,0,W,H,C.bg);
   const mir=g.L&&g.L.mirror; if(mir){ ctx.save(); ctx.translate(W,0); ctx.scale(-1,1); }
@@ -915,7 +959,8 @@ function drawMenu(){
     if(g.state==='intro'){}
     else if(DEV){ px(W/2-110,100,220,22,C.ink); text('DEV ◀ ▶  Level '+(save.lv+1)+': '+LEVELS[save.lv].name,W/2,104,6,C.gold); text('pilih level, ▲ buat mulai',W/2,114,5,C.bg); }
     else text(save.lv>0?'Lanjut dari Level '+(save.lv+1):LEVELS.length+' level. Banyak jebakan.',W/2,104,6,C.gold);
-    text('Total mati: '+save.deaths,W/2,H-20,6,C.bg);
+    text('Total mati: '+save.deaths,W/2,H-22,6,C.bg);
+    if(g.state==='menu') text('☺ = ganti karakter ('+curChar().name+')',W/2,H-11,5,C.gold);
   } else {
     text('KAMU LOLOS!',W/2,22,16,C.ink); text('KAMU LOLOS!',W/2,20,16,C.gold);
     text('Mati '+save.deaths+' kali',W/2,50,8,C.bg);
@@ -926,11 +971,38 @@ function drawMenu(){
   }
 }
 
+// layar pilih karakter: posisi tiap karakter (dipakai buat gambar & tap)
+const charX=i=>W/2-15+(i-(CHARS.length-1)/2)*58, CHAR_Y=52;
+function drawChars(){
+  px(0,0,W,H,C.wall);
+  for(let x=0;x<W;x+=T) px(x,H-30,T,30,(x/T)%2?C.wallD:'#1f625a');
+  px(0,H-31,W,2,C.wallL);
+  text('PILIH KARAKTER',W/2,16,12,C.ink); text('PILIH KARAKTER',W/2,14,12,C.gold);
+  const bob=Math.round(Math.sin(g.anim*5)*2);
+  CHARS.forEach((c,i)=>{ const x=Math.round(charX(i)), on=i===g.pick;
+    if(on){ px(x-6,CHAR_Y-6,42,50,C.gold); px(x-4,CHAR_Y-4,38,46,C.wallD); }
+    sprite(x,CHAR_Y+(on?bob:0),1,on&&Math.floor(g.anim*4)%2?SPR_W1:null,3,c);
+  });
+  text(CHARS[g.pick].name,W/2,108,10,C.gold);
+  if(Math.floor(g.anim*2)%2===0) text('◀ ▶ / tap buat pilih · ▲ oke',W/2,126,6,C.bg);
+  text('⌂ / Esc buat balik',W/2,H-18,5,C.bg);
+}
+// tap di canvas buat milih karakter (tap karakter yang udah kepilih = oke)
+cv.addEventListener('pointerdown',e=>{
+  if(g.state!=='chars') return; e.preventDefault();
+  const r=cv.getBoundingClientRect(), kx=cv.width/r.width, ky=cv.height/r.height;
+  const sc=Math.min(cv.width/W, cv.height/H), ox=(cv.width-W*sc)/2, oy=(cv.height-H*sc)/2;
+  const gx=((e.clientX-r.left)*kx-ox)/sc, gy=((e.clientY-r.top)*ky-oy)/sc;
+  if(gy<CHAR_Y-10||gy>CHAR_Y+46) return;
+  const i=CHARS.findIndex((c,i)=>gx>=charX(i)-8&&gx<=charX(i)+38); if(i<0) return;
+  if(i===g.pick) jTap=1; else { g.pick=i; save.char=i; store(); sfx.crack(); }
+});
+
 /* ---------- loop ---------- */
 let last=performance.now(), accT=0; const STEP=1/60;
 function frame(now){
   accT+=Math.min(.1,(now-last)/1000); last=now;
-  { const show=g.state==='menu'; if(rsEl.hidden===show) rsEl.hidden=!show; }
+  { const show=g.state==='menu'; if(rsEl.hidden===show) rsEl.hidden=!show; if(bcEl.hidden===show) bcEl.hidden=!show; if(bhEl.hidden!==show) bhEl.hidden=show; }
   while(accT>=STEP){ update(STEP); accT-=STEP; }
   draw(); requestAnimationFrame(frame);
 }
