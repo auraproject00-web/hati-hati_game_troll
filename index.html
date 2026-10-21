@@ -96,13 +96,13 @@ function store(){try{localStorage.setItem('hatihati',JSON.stringify(save));}catc
 
 /* ---------- input ---------- */
 const DEV=false; // versi uji coba: pilih level di menu. Versi GitHub/Vercel = false
-const keys={l:0,r:0,j:0}; let prevJ=0, prevL=0, prevR=0;
+const keys={l:0,r:0,j:0}; let prevJ=0, prevL=0, prevR=0, jTap=0; // jTap: lompat yang ditekan-lepas sebelum update sempat jalan
 const km={ArrowLeft:'l',KeyA:'l',ArrowRight:'r',KeyD:'r',Space:'j',ArrowUp:'j',KeyW:'j'};
-addEventListener('keydown',e=>{const k=km[e.code]; if(k){keys[k]=1;e.preventDefault();audioInit();}});
+addEventListener('keydown',e=>{const k=km[e.code]; if(k){if(k==='j'&&!keys.j) jTap=1; keys[k]=1;e.preventDefault();audioInit();}});
 addEventListener('keyup',e=>{const k=km[e.code]; if(k){keys[k]=0;e.preventDefault();}});
 [['bl','l'],['br','r'],['bj','j']].forEach(([id,k])=>{
   const el=document.getElementById(id);
-  const on=e=>{e.preventDefault();keys[k]=1;el.classList.add('on');audioInit();};
+  const on=e=>{e.preventDefault();if(k==='j'&&!keys.j) jTap=1; keys[k]=1;el.classList.add('on');audioInit();};
   const off=e=>{e.preventDefault();keys[k]=0;el.classList.remove('on');};
   el.addEventListener('pointerdown',e=>{try{el.setPointerCapture(e.pointerId)}catch(_){}on(e);});
   el.addEventListener('pointerup',off); el.addEventListener('pointercancel',off); el.addEventListener('lostpointercapture',off);
@@ -163,7 +163,7 @@ function playStep(i,t){
   if(q===2) tone(hz(root-17),t,E8*1.2,'triangle',.045);
   if(i%2===1) hat(t,.014);
 }
-function sched(){ if(!ac) return; while(mus.next<ac.currentTime+.15){ if(mus.on) playStep(mus.step,mus.next); mus.next+=E8; mus.step=(mus.step+1)%LEAD.length; } }
+function sched(){ if(!ac) return; if(mus.next<ac.currentTime) mus.next=ac.currentTime+.05; /* habis tab di background: jangan nyusul nada yang ketinggalan */ while(mus.next<ac.currentTime+.15){ if(mus.on) playStep(mus.step,mus.next); mus.next+=E8; mus.step=(mus.step+1)%LEAD.length; } }
 function startMusic(){ if(!ac||mus.started) return; mus.started=1; if(bgm){ syncBgm(); return; } mus.next=ac.currentTime+.1; setInterval(sched,30); }
 
 const sfx={
@@ -589,7 +589,7 @@ function update(dt){
   if(g.shake>0) g.shake-=dt;
   if(g.banner>0) g.banner-=dt;
   if(g.fakeBanner>0) g.fakeBanner-=dt;
-  const jp=keys.j&&!prevJ; prevJ=keys.j;
+  const jp=(keys.j&&!prevJ)||jTap; jTap=0; prevJ=keys.j;
   const lp=keys.l&&!prevL, rp=keys.r&&!prevR; prevL=keys.l; prevR=keys.r;
   if(DEV&&g.state==='menu'&&(lp||rp)){ save.lv=(save.lv+(rp?1:-1)+LEVELS.length)%LEVELS.length; store(); sfx.crack(); }
 
@@ -880,7 +880,7 @@ function draw(){
   else if(g.banner>0){ const a=Math.min(1,g.banner*2); ctx.globalAlpha=a;
     px(0,62,W,30,C.ink); text('LEVEL '+(g.lv+1),W/2,70,14,C.gold); ctx.globalAlpha=1; }
   else if(g.msgT>0){ ctx.globalAlpha=Math.min(1,g.msgT*3);
-    const w=Math.min(W-12,g.msg.length*8+14); px((W-w)/2,22,w,16,C.ink); text(g.msg,W/2,26,8,C.bg); ctx.globalAlpha=1; }
+    const fs=g.msg.length*8+14>W-12?7:8, w=Math.min(W-12,g.msg.length*fs+14); px((W-w)/2,22,w,16,C.ink); text(g.msg,W/2,26,fs,C.bg); ctx.globalAlpha=1; }
 
   if(g.state==='trans'||g.fade>0){ ctx.globalAlpha=Math.min(1,g.fade); px(0,0,W,H,C.ink); ctx.globalAlpha=1; }
   ctx.restore();
