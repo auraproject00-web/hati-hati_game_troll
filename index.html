@@ -549,9 +549,13 @@ const LEVELS=[
    e.push({kind:'riser',y:H+6,spd:10,wait:1.2}); e.push(door(27,4)); return {m, ents:e};
  }},
  {name:'Penghancur', hint:'Lorongnya aman. Kayaknya.', build(){
-   const m=blank(); fill(m,6,1,25,9,'#'); const e=[];
-   [[9,0],[15,.8],[21,1.6]].forEach(([x,ph])=>e.push({kind:'crusher',x:x*T,y:100,w:20,h:20,y0:100,y1:130,up:1.1,fall:.12,down:.5,rise:.7,ph,solid:true}));
-   e.push(door(28)); return {m, ents:e};
+   const m=blank(); fill(m,6,1,25,9,'#'); const e=[], cr=[];
+   // 6 penghancur, celah 1 karakter; fasenya bergelombang jadi lari terus pasti kena
+   [[8,0],[11,.6],[14,1.2],[17,1.8],[20,.3],[23,.9]].forEach(([x,ph])=>{ const c={kind:'crusher',x:x*T,y:100,w:20,h:20,y0:100,y1:130,up:1.1,fall:.12,down:.5,rise:.7,ph,solid:true}; cr.push(c); e.push(c); });
+   // troll: yang terakhir langsung jatuh begitu didekati
+   const last=cr[cr.length-1];
+   e.push(zone(22,22,g=>{ last.ph=last.up-g.lvTime; sfx.trap(); say('Nggak sabaran ya?',1.4); }));
+   e.push(door(28)); return {m, ents:e, helpAt:3, help:'Yang terakhir galak. Biarin dia jatuh dulu, baru lari.'};
  }},
  {name:'Menang Palsu', hint:'Pintunya di tengah. Gampang.', build(){
    const m=blank(); pit(m,15,23); const e=[];
