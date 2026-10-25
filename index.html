@@ -75,7 +75,7 @@ canvas{display:block;image-rendering:pixelated;border:3px solid var(--line);bord
     <button class="b" id="bj" aria-label="Lompat">▲</button>
   </div>
   <button id="breset" type="button">↺ Reset jumlah mati</button>
-  <div id="tip">Keyboard: ← → / A D buat jalan · Spasi / ↑ / W buat lompat · Esc ke awal · C pilih karakter</div>
+  <div id="tip">Keyboard: ← → / A D buat jalan · Spasi / ↑ / W buat lompat · Enter buat mulai · Esc ke awal · C pilih karakter</div>
 </div>
 
 <script>
@@ -112,7 +112,7 @@ const DEV=false; // versi uji coba lokal (musik MP3). Versi GitHub/Vercel = fals
 // pilih level: nyala di versi uji coba (link preview Vercel / lokal), mati di versi utama
 const PICK=DEV||location.hostname!=='hati-hati-game-troll.vercel.app';
 const keys={l:0,r:0,j:0}; let prevJ=0, prevL=0, prevR=0, jTap=0, lTap=0, rTap=0; // *Tap: tombol yang ditekan-lepas sebelum update sempat jalan
-const km={ArrowLeft:'l',KeyA:'l',ArrowRight:'r',KeyD:'r',Space:'j',ArrowUp:'j',KeyW:'j'};
+const km={ArrowLeft:'l',KeyA:'l',ArrowRight:'r',KeyD:'r',Space:'j',ArrowUp:'j',KeyW:'j',Enter:'j',NumpadEnter:'j'};
 addEventListener('keydown',e=>{const k=km[e.code]; if(k){if(k==='j'&&!keys.j) jTap=1; if(k==='l'&&!keys.l) lTap=1; if(k==='r'&&!keys.r) rTap=1; keys[k]=1;e.preventDefault();audioInit();}});
 addEventListener('keyup',e=>{const k=km[e.code]; if(k){keys[k]=0;e.preventDefault();}});
 [['bl','l'],['br','r'],['bj','j']].forEach(([id,k])=>{
