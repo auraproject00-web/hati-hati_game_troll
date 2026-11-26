@@ -598,7 +598,7 @@ const LEVELS=[
    const m=blank(); fill(m,10,5,24,5,'#'); fill(m,3,1,5,1,'v'); const e=[];
    e.push(spring(5,525));
    e.push({kind:'slider',x:120,y:40,w:10,h:T,x1:100,x2:160,vx:45});
-   for(let y=2;y<=4;y++) e.push(inv(17,y));
+   for(let y=3;y<=4;y++) e.push(inv(17,y)); // 2 kotak: celah ke atap 20px, cukup buat karakter (tinggi 11)
    e.push({kind:'riser',y:H+6,spd:7,wait:2}); e.push(door(22,5));
    return {m, ents:e, helpAt:3, help:'Pegas, terus ada tembok gaib di atas.'};
  }},
