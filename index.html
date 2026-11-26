@@ -105,12 +105,15 @@ addEventListener('resize',fit); addEventListener('orientationchange',()=>setTime
 /* ---------- simpan ---------- */
 let save={lv:0,deaths:0,best:null};
 try{const s=JSON.parse(localStorage.getItem('hatihati')); if(s) save=Object.assign(save,s);}catch(e){}
+save.deaths=Math.max(0,save.deaths|0); save.char=Math.max(0,save.char|0);
 function store(){try{localStorage.setItem('hatihati',JSON.stringify(save));}catch(e){}}
 
 /* ---------- input ---------- */
 const DEV=false; // versi uji coba lokal (musik MP3). Versi GitHub/Vercel = false
-// pilih level: nyala di versi uji coba (link preview Vercel / lokal), mati di versi utama
-const PICK=DEV||location.hostname!=='hati-hati-game-troll.vercel.app';
+// pilih level: nyala di versi uji coba (link preview Vercel / lokal / ?uji), mati di versi utama & domain lain
+const HOST=location.hostname, PROD='hati-hati-game-troll.vercel.app';
+const PICK=DEV||location.protocol==='file:'||HOST==='localhost'||/^(127\.|192\.168\.|10\.)/.test(HOST)
+  ||(HOST.endsWith('.vercel.app')&&HOST!==PROD)||new URLSearchParams(location.search).has('uji');
 const keys={l:0,r:0,j:0}; let prevJ=0, prevL=0, prevR=0, jTap=0, lTap=0, rTap=0; // *Tap: tombol yang ditekan-lepas sebelum update sempat jalan
 const km={ArrowLeft:'l',KeyA:'l',ArrowRight:'r',KeyD:'r',Space:'j',ArrowUp:'j',KeyW:'j',Enter:'j',NumpadEnter:'j'};
 addEventListener('keydown',e=>{const k=km[e.code]; if(k){if(k==='j'&&!keys.j) jTap=1; if(k==='l'&&!keys.l) lTap=1; if(k==='r'&&!keys.r) rTap=1; keys[k]=1;e.preventDefault();audioInit();}});
@@ -154,7 +157,8 @@ rsEl.addEventListener('pointerdown',e=>{ e.preventDefault(); e.stopPropagation()
 const bmEl=document.getElementById('bm'); if(!mus.on) bmEl.classList.add('off');
 // tombol home (balik ke tampilan awal) & pilih karakter
 const bhEl=document.getElementById('bh'), bcEl=document.getElementById('bc');
-function goHome(){ if(g.state==='menu'||fakeQuit()) return; g.state='menu'; g.fade=0; g.shake=0; g.msgT=0; g.banner=0; g.fakeBanner=0; g.letter=null; g.introOpen=0;
+// g.quit: dialog keluar palsu lagi kebuka, ⌂ dipencet lagi tetap nggak bisa kabur
+function goHome(){ if(g.state==='menu'||g.quit||fakeQuit()) return; g.state='menu'; g.fade=0; g.shake=0; g.msgT=0; g.banner=0; g.fakeBanner=0; g.letter=null; g.introOpen=0;
   keys.l=keys.r=keys.j=0; if(typeof sfx!=='undefined') sfx.crack(); }
 function openChars(){ if(g.state!=='menu') return; g.state='chars'; g.pick=save.char|0; audioInit(); if(typeof sfx!=='undefined') sfx.crack(); }
 bhEl.addEventListener('pointerdown',e=>{e.preventDefault();e.stopPropagation();goHome();});
@@ -622,6 +626,8 @@ const ORDER=['Pemanasan','Duri Nongol','Ngebut','Koin Bom','Hint Bohong','Pintu 
  'Pegas Nakal','Gergaji','Duri Jalan','Dinding Gaib','Mati Dulu','Jangan Lompat','Jangan Diam','Lantai Ombak','Gravitasi Bulan','Kunci Kabur',
  'Cermin','Gergaji Lantai','Banjir Duri','Penghancur','Menang Palsu','Pintu Password','Lift Gergaji','Pintu di Atas','Campur Aduk','Raja Troll'];
 LEVELS.sort((a,b)=>ORDER.indexOf(a.name)-ORDER.indexOf(b.name));
+// simpanan rusak / jumlah level berubah: jangan sampai LEVELS[save.lv] kosong
+{ const v=save.lv|0; save.lv=(v>=0&&v<LEVELS.length)?v:0; }
 
 const QUIPS=['Bentar, istirahat dulu...','Capek mati terus.','Ya ampunnn...','Rebahan dulu ah.','Aduh, sakit.',
  'Mati lagi, mati lagi.','Kok gitu sih?','Gak lagi-lagi. (bohong)','Lantainya jahat.','Huhu... helmku.','Nyawa tinggal... eh banyak.','Sabar... sabar...'];
@@ -643,7 +649,6 @@ function loadLevel(i,fresh){
   g.state='play';
   if(fresh) say(L.hint,3);
   else if(b.help&&g.lvDeaths>=b.helpAt) say(b.help,3);
-  if(fresh&&g.L.rev) say(L.hint,3);
 }
 
 /* ---------- tabrakan ---------- */
